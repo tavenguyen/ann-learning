@@ -7,7 +7,7 @@ def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
 def relu(x):
-    return max(x, 0)
+    return np.maximum(x, 0)
 
 def softmax(x):
     exp_values = np.exp(x - np.max(x, axis=1, keepdims=True))
@@ -15,7 +15,7 @@ def softmax(x):
 
 class DenseLayer:
     def __init__(self, n_inputs, n_neurons):
-        self.weights = np.random.rand(n_inputs, n_neurons)
+        self.weights = 0.01 * np.random.rand(n_inputs, n_neurons)
         self.biases = np.zeros((1, n_neurons))
     
     def forward(self, inputs, activation = None):
