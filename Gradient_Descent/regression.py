@@ -22,15 +22,16 @@ class Line:
 
 # inputs(x,y)
 def gradient_descent(old_a, old_b, learning_rate, X, Y):
-    derivative_x = 0
-    derivative_y = 0
-    for j in range(len(X)):
-        derivative_x += -(2/len(X)) * X[j] * (Y[j] - (old_a * X[j] + old_b))
-        derivative_y += -(2/len(X)) * (Y[j] - (old_a * X[j] + old_b))
+    y_predict = old_a * X + old_b
 
-    A = old_a - learning_rate * derivative_x
-    B = old_b - learning_rate * derivative_y
-    return A, B
+    error = Y - y_predict
+
+    derivative_a = -2 * np.mean(X * error)
+    derivative_b = -2 * np.mean(error)
+
+    new_a = old_a - learning_rate * derivative_a
+    new_b = old_b - learning_rate * derivative_b
+    return new_a, new_b
 
 def loss(a, b, x, y):
     y_predict = a * x + b
@@ -49,16 +50,27 @@ B = 0
 LR = 0.01
 epochs = 5000
 
+X_data = line.P[:, 0]
+Y_data = line.P[:, 1]
+
 for i in range(epochs):
-    A,B = gradient_descent(A, B, LR, line.P[:, 0], line.P[:, 1])
-    print(loss(A, B, line.P[:, 0], line.P[:, 1]))
+    A,B = gradient_descent(A, B, LR, X_data, Y_data)
+    if i % 50 == 0:
+        current_loss = loss(A, B, X_data, Y_data)
+        print(f"Epoch {i:3d} | Loss: {current_loss:.4f} | a: {A:.3f}, b: {B:.3f}")
 
-print(A, B)
+print("-" * 30)
+print(f"Trọng số TỐI ƯU cuối cùng: A = {A:.3f}, B = {B:.3f}")
+# (Đáng lẽ phải tiến gần tới a = -2, b = 4 theo công thức sinh dữ liệu của bạn)
 
-plt.scatter(line.P[:, 0], line.P[:, 1], c = line.L, s = 40)
+plt.scatter(X_data, Y_data, c = line.L, s = 40)
 
 y_learned = A * line.P[:, 0] + B
 plt.plot(line.P[:, 0], y_learned, color='red', linewidth=3, label=f"Đường hồi quy: y = {A:.2f}x + {B:.2f}")
 
+plt.title("Mô phỏng Gradient Descent cho Hồi quy tuyến tính")
+plt.xlabel("X")
+plt.ylabel("Y")
+plt.legend()
+plt.grid(True)
 plt.show()
-
