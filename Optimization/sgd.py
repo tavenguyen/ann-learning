@@ -130,13 +130,12 @@ y = inputs.L
 plt.scatter(inputs.P[:, 0], inputs.P[:, 1], c=inputs.L, s = 40)
 plt.show()
 
-layer1 = Dense(n_inputs=2, n_neurons=3)
+layer1 = Dense(n_inputs=2, n_neurons=64)
 activation1 = Activation_ReLU()
 
-layer2 = Dense(n_inputs=3, n_neurons=3)
-
-optimize = Optimizer_SGD(eta)
+layer2 = Dense(n_inputs=64, n_neurons=3)
 loss_activation = Activation_Softmax_Loss_CategoricalCrossentropy()
+optimize = Optimizer_SGD(eta)
 
 for epoch in range(epochs):
     layer1.forward(inputs.P)
