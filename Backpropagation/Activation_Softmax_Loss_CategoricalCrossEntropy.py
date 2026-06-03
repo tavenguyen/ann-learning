@@ -28,7 +28,7 @@ class Activation_Softmax_Loss_CategoricalCrossEntropy:
         #     [0, 1, 0]
         # ]
         elif(len(y_true.shape) == 2):   
-            confidence_score = np.sum(y_pred * y_true, axis = 1)
+            confidence_score = np.sum(y_pred * y_true, axiws = 1)
 
         confidence_score = -np.log(confidence_score)
         return confidence_score

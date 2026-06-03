@@ -97,37 +97,37 @@ K = 3
 D = 2
 inputs = Spiral(n_points = N, n_classes = K, n_dimensions = D)
 
-layer1 = DenseLayer(n_inputs = 2, n_neurons = 3, activation_type = 'relu')
-layer2 = DenseLayer(n_inputs = 3, n_neurons = 3)
+layer1 = DenseLayer(n_inputs = 2, n_neurons = 64, activation_type = 'relu')
+layer2 = DenseLayer(n_inputs = 64, n_neurons = 3)
 loss_activation = Activation_Softmax_LossCategoricalCrossEntropy()
 
+EPOCHS = 10000
+learning_rate = 1
 
-# Forward pass
-layer1.forward(inputs.P)
-layer2.forward(layer1.A)
+for epoch in range(EPOCHS):
+    # Forward pass
+    layer1.forward(inputs.P)
+    layer2.forward(layer1.A)
 
-# Loss calculate
-loss = loss_activation.calculate(layer2.A, inputs.L)
-print("Losses: ", loss)
+    # Loss calculate
+    loss = loss_activation.calculate(layer2.A, inputs.L)
 
-# Accuracy calculate
-predictions = np.argmax(loss_activation.output, axis=1)
-accuracy = np.mean(predictions == inputs.L)
+    # Accuracy calculate
+    predictions = np.argmax(loss_activation.output, axis=1)
+    accuracy = np.mean(predictions == inputs.L)
 
-# --- BACKWARD PASS ---
-# Truyền Softmax Output và Nhãn vào để lấy dZ đầu tiên
-loss_activation.backward(loss_activation.output, inputs.L)
+    if epoch % 1000 == 0:
+        print("Losses: ", loss, "- Accuracy: ", accuracy)
 
-# Lớp 2 nhận dZ từ lớp Fusion (loss_activation.dinputs), trả ra dX_2
-dX_2 = layer2.backward(loss_activation.dinputs)
+    # --- BACKWARD PASS ---
+    # Truyền Softmax Output và Nhãn vào để lấy dZ đầu tiên
+    loss_activation.backward(loss_activation.output, inputs.L)
 
-# Lớp 1 nhận dX_2 (coi như dA của nó), trả ra dX_1
-dX_1 = layer1.backward(dX_2)
+    # Lớp 2 nhận dZ từ lớp Fusion (loss_activation.dinputs), trả ra dX_2
+    dX_2 = layer2.backward(loss_activation.dinputs)
 
-# Print gradients of weights and biaises
-print("Layer1: dweights, dbiases")
-print(layer1.dW)
-print(layer1.db)
-print("Layer2: dweights, dbiases")
-print(layer2.dW)
-print(layer2.db)
+    # Lớp 1 nhận dX_2 (coi như dA của nó), trả ra dX_1
+    dX_1 = layer1.backward(dX_2)
+
+    layer1.update_weights(learning_rate)
+    layer2.update_weights(learning_rate)
