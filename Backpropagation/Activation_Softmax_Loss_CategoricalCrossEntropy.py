@@ -9,6 +9,8 @@ class Activation_Softmax_Loss_CategoricalCrossEntropy:
         exp_values = np.exp(inputs - np.max(inputs, axis = 1, keepdims = True))
         self.output = exp_values / np.sum(exp_values, axis = 1, keepdims = True)
 
+
+        samples = len(inputs)
         y_pred = np.clip(inputs, 1e-7, 1 - 1e-7)
 
         # y_pred = [
@@ -19,7 +21,7 @@ class Activation_Softmax_Loss_CategoricalCrossEntropy:
 
         # y_true_1d = [0, 1, 1]
         if(len(y_true.shape) == 1):
-            confidence_score = y_pred[range(inputs), y_true]
+            confidence_score = y_pred[range(samples), y_true]
         # y_true_2d = [
         #     [1, 0, 0],
         #     [0, 1, 0],
