@@ -75,3 +75,27 @@ class Optimizer_SGD_Momentum_Decay:
         # W_{i + 1} = W_{i} - V_{i + 1}
         layer.weights -= layer.weight_velocity
         layer.biases -= layer.bias_velocity
+
+class Optimizer_AdaGrad:
+    def __init__(self, lr = 1.0, epsilon = 1e-7):
+        self.initial_lr = lr
+        self.current_lr = lr
+        self.epsilon = epsilon
+        self.iterations = 0
+
+    def pre_update_params(self):
+        self.current_lr = self.current_lr
+    
+    def update_params(self, layer):
+        if not hasattr(layer, "weight_cache"):
+            layer.weight_cache = np.zeros_like(layer.weights)
+            layer.bias_cache = np.zeros_like(layer.biases)
+
+        layer.weight_cache += layer.dW ** 2
+        layer.bias_cache += layer.dB ** 2
+
+        layer.weights -= (self.current_lr / (np.sqrt(layer.weight_cache) + self.epsilon)) * layer.dW
+        layer.biases -= (self.current_lr / (np.sqrt(layer.bias_cache) + self.epsilon)) * layer.dB
+
+    def post_update_params(self):
+        self.iterations += 1
