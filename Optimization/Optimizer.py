@@ -25,6 +25,30 @@ class Optimizer_SGD_Decay:
     def post_update_params(self):
         self.iterations += 1
 
+class Optimizer_SGD_Momentum:
+    def __init__(self, lr = 1.0, beta = 0.0):
+        self.initial_lr = lr
+        self.current_lr = lr
+        self.beta = beta
+        self.iterations = 0
+
+    def pre_update_params(self):
+        self.current_lr = self.current_lr
+    
+    def update_params(self, layer):
+        if not hasattr(layer, "weight_velocity"):
+            layer.weight_velocity = np.zeros_like(layer.weights)
+            layer.bias_velocity = np.zeros_like(layer.biases)
+
+        layer.weight_velocity = self.beta * layer.weight_velocity + self.current_lr * layer.dW
+        layer.bias_velocity = self.beta * layer.bias_velocity + self.current_lr * layer.dB
+
+        layer.weights -= layer.weight_velocity
+        layer.biases -= layer.bias_velocity
+
+    def post_update_params(self):
+        self.iterations += 1
+
 class Optimizer_SGD_Momentum_Decay:
     def __init__(self, lr = 1.0, decay_rate = 0.0, beta = 0.0):
         self.initial_lr = lr
