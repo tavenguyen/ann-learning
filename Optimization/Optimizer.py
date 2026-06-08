@@ -99,3 +99,28 @@ class Optimizer_AdaGrad:
 
     def post_update_params(self):
         self.iterations += 1
+
+class Optimizer_RMSProp:
+    def __init__(self, lr = 1.0, p = 0.9, epsilon = 1e-7):
+        self.initial_lr = lr
+        self.current_lr = lr
+        self.p = p
+        self.epsilon = epsilon
+        self.iterations = 0
+
+    def pre_update_params(self):
+        self.current_lr = self.current_lr
+    
+    def update_params(self, layer):
+        if not hasattr(layer, "moving_average_weight"):
+            layer.moving_average_weight = np.zeros_like(layer.weights)
+            layer.moving_average_bias = np.zeros_like(layer.biases)
+        
+        layer.moving_average_weight = self.p * layer.moving_average_weight + (self.dW ** 2) * (1 - self.p)
+        layer.moving_average_bias = self.p * layer.moving_average_bias + (self.dB ** 2) * (1 - self.p)
+
+        layer.weights -= self.current_lr * self.dW / (np.sqrt(layer.moving_average_weight) + self.epsilon)
+        layer.biases -= self.current_lr * self.dB / (np.sqrt(layer.moving_average_bias) + self.epsilon)
+
+    def post_update_params(self):
+        self.iterations += 1
