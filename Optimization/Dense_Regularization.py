@@ -129,7 +129,7 @@ class DenseLayer:
             self.dweights += self.weight_regularizer.backward(self.weights)
 
         if self.bias_regularizer is not None:
-            self.dbiases += self.bias_regularizer.backward(self.weights)
+            self.dbiases += self.bias_regularizer.backward(self.biases)
 
         return dX
 
