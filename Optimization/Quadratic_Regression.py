@@ -197,6 +197,26 @@ class Activation_Linear:
     def backward(self, dvalues):
         self.dinputs = dvalues.copy()
 
+class Loss:
+    def calculate(self, y_pred, y_true):
+        samples = self.forward(y_pred, y_true)
+        self.output = np.mean(samples)
+        return self.output
+    
+class Loss_MeanSquaredError:
+    def forward(self, y_pred, y_true):
+        squared_error = (y_pred - y_true) ** 2
+        loss = np.mean(squared_error, axis = 1)
+        return loss
+
+    # error = 1/N \sum_M (y_pred - y_true)^2
+    def backward(self, y_pred, y_true):
+        N = y_pred.shape[0]
+        M = y_pred.shape[1]
+        
+        self.dinputs = 2 * (y_pred - y_true) / (N * M)
+        return self.dinputs
+
 class DenseLayer:
     def __init__(self, n_neurons, n_inputs):
         self.weights = np.random.randn(n_inputs, n_neurons)
@@ -213,4 +233,8 @@ class DenseLayer:
         return dinputs
     
 np.random.seed(0)
+
 inputs = Quadratic(n_points=10, n_classes=1, n_dimensions=2)
+layer1 = DenseLayer(n_inputs=1, n_neurons=8)
+layer2 = DenseLayer(n_inputs=8, n_neurons=1)
+loss_function = 
