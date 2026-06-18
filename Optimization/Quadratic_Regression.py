@@ -241,11 +241,13 @@ class DenseLayer:
         self.dinputs = np.dot(dvalues, self.weights.T)
     
 N = 10
-np.random.seed(0)
+for seed in range(10):
+    np.random.seed(seed)
+
 epochs = 10000
 learning_rate = 0.001
 
-inputs = Quadratic(n_points=N, n_classes=1, n_dimensions=2, noise_std=5.0)
+inputs = Quadratic(n_points=N, n_classes=1, n_dimensions=2, noise_std=2.0)
 plt.scatter(inputs.P[:, 0], inputs.P[:, 1], c = inputs.L, s = 40)
 plt.show()
 
@@ -268,18 +270,39 @@ for epoch in range(epochs):
 
     loss = loss_function.calculate(activation1.output, Y)
 
+    y_pred = activation1.output
+    mae = np.mean(
+        np.abs(y_pred - Y)
+    )
+
+    rmse = np.sqrt(
+        np.mean(
+            (y_pred - Y) ** 2
+        )
+    )
+
+    ss_res = np.sum(
+        (Y - y_pred) ** 2
+    )
+
+    ss_total = np.sum(
+        (Y - np.mean(Y)) ** 2
+    )
+
+    r2 = 1 - ss_res / ss_total
+
     # backward pass
     loss_function.backward(activation1.output, Y)
     activation1.backward(loss_function.dinputs)
     layer1.backward(activation1.dinputs)
 
     # optimizer
-    # optimizer.pre_update_params()
+    optimizer.pre_update_params()
     optimizer.update_params(layer1)
     optimizer.post_update_params()
 
     if epoch % 500 == 0:
-        print(loss)
+        print("Loss: ", loss, " MAE: ", mae, " RMSE", rmse, " R^2", r2)
 
 a = layer1.weights[0, 0]
 b = layer1.weights[1, 0]
