@@ -249,10 +249,8 @@ inputs = Quadratic(n_points=N, n_classes=1, n_dimensions=2, noise_std=5.0)
 plt.scatter(inputs.P[:, 0], inputs.P[:, 1], c = inputs.L, s = 40)
 plt.show()
 
-layer1 = DenseLayer(n_inputs=2, n_neurons=8)
+layer1 = DenseLayer(n_inputs=2, n_neurons=1)
 activation1 = Activation_Linear()
-layer2 = DenseLayer(n_inputs=8, n_neurons=1)
-activation2 = Activation_Linear()
 loss_function = Loss_MeanSquaredError()
 optimizer = Optimizer_Adam(learning_rate = learning_rate)
 
@@ -267,33 +265,27 @@ for i in range(N):
 for epoch in range(epochs):
     layer1.forward(X)
     activation1.forward(layer1.output)
-    layer2.forward(activation1.output)
-    activation2.forward(layer2.output)
 
-    loss = loss_function.calculate(activation2.output, Y)
+    loss = loss_function.calculate(activation1.output, Y)
 
     # backward pass
-    loss_function.backward(activation2.output, Y)
-    activation2.backward(loss_function.dinputs)
-    layer2.backward(activation2.dinputs)
-    activation1.backward(layer2.dinputs)
+    loss_function.backward(activation1.output, Y)
+    activation1.backward(loss_function.dinputs)
     layer1.backward(activation1.dinputs)
 
     # optimizer
     # optimizer.pre_update_params()
     optimizer.update_params(layer1)
-    optimizer.update_params(layer2)
     optimizer.post_update_params()
 
     if epoch % 500 == 0:
         print(loss)
 
-weights = np.dot(layer1.weights, layer2.weights)
-a = weights[0, 0]
-b = weights[1, 0]
-c = np.dot(layer1.biases, layer2.weights) + layer2.biases
+a = layer1.weights[0, 0]
+b = layer1.weights[1, 0]
+c = layer1.biases[0, 0]
 
-Y_pred = a * inputs.P[:, 0] ** 2 + b * inputs.P[:, 0] + c[0, 0]
+Y_pred = a * inputs.P[:, 0] ** 2 + b * inputs.P[:, 0] + c
 
 print("Learned parameters:")
 print("a =", a)
