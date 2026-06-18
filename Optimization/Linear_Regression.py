@@ -242,7 +242,7 @@ class DenseLayer:
 
 np.random.seed(0)    
 
-N = 10
+N = 1000
 K = 1
 D = 2
 learning_rate = 0.01
@@ -256,7 +256,7 @@ for i in range(N):
     X[i, 0] = inputs.P[i, 0]
     Y[i, 0] = inputs.P[i, 1]
     
-plt.scatter(X, Y, c = inputs.L, s = 40)
+plt.scatter(X, Y, c = inputs.L, s = 5)
 plt.show()
 
 layer = DenseLayer(n_inputs=1, n_neurons=1)
