@@ -2,25 +2,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class Quadratic:
-    def __init__(self, n_points, n_classes, n_dimensions, noise_std = 2.0):
-        N = n_points
-        K = n_classes
-        D = n_dimensions
+    def __init__(self, n_points, a, b, c, x_min = -10.0, x_max = 10.0, noise_std = 2.0):
+        self.a = a
+        self.b = b
+        self.c = c
 
-        self.P = np.zeros((N * K, D))
-        self.L = np.zeros(N * K, dtype = 'int8')
+        self.X = np.linspace(x_min, x_max, n_points).reshape(-1, 1)
 
-        for j in range(K):
-            a = j + 1
-            b = 2 * (j - 1)
-            c = (j - 2) * 2
-            noise = np.random.randn(N) * noise_std
-
-            ix = range(N * j, N * (j + 1))
-            t = np.linspace(-10, 10, N)
-            if D == 2:
-                self.P[ix] = np.c_[t, a * (t ** 2) + b * t + c + noise]
-            self.L[ix] = j
+        # noise ~ N(0, noise_std^2)
+        noise = np.random.randn(n_points, 1) * noise_std
+        self.Y = (a * self.X ** 2 + b * self.X + c) + noise
 
 class Optimizer_Adam:
     def __init__(
@@ -246,8 +237,11 @@ np.random.seed(0)
 epochs = 20000
 learning_rate = 0.001
 
-inputs = Quadratic(n_points=N, n_classes=1, n_dimensions=2, noise_std=2.0)
-plt.scatter(inputs.P[:, 0], inputs.P[:, 1], c = inputs.L, s = 40)
+inputs = Quadratic(n_points=N, a = 2.0, b = -3.0, c = 4.0, noise_std=2.0, x_min=-5.0, x_max=5.0)
+X = inputs.X
+Y = inputs.Y
+
+plt.scatter(X, Y, s = 5)
 plt.show()
 
 layer1 = DenseLayer(n_inputs=2, n_neurons=1)
@@ -255,16 +249,13 @@ activation1 = Activation_Linear()
 loss_function = Loss_MeanSquaredError()
 optimizer = Optimizer_Adam(learning_rate = learning_rate)
 
-X = np.zeros((N, 2))
-Y = np.zeros((N, 1))
-
+X_input = np.zeros((N, 2))
 for i in range(N):
-    X[i, 0] = inputs.P[i, 0] ** 2
-    X[i, 1] = inputs.P[i, 0]
-    Y[i, 0] = inputs.P[i, 1]
+    X_input[i, 0] = X[i] ** 2
+    X_input[i, 1] = X[i]
 
 for epoch in range(epochs):
-    layer1.forward(X)
+    layer1.forward(X_input)
     activation1.forward(layer1.output)
 
     loss = loss_function.calculate(activation1.output, Y)
@@ -307,17 +298,17 @@ a = layer1.weights[0, 0]
 b = layer1.weights[1, 0]
 c = layer1.biases[0, 0]
 
-Y_pred = a * inputs.P[:, 0] ** 2 + b * inputs.P[:, 0] + c
+Y_pred = a * X ** 2 + b * X + c
 
 print("Learned parameters:")
 print("a =", a)
 print("b =", b)
 print("c =", c)
 
-plt.scatter(inputs.P[:, 0], inputs.P[:, 1], c = inputs.L, s = 40)
+plt.scatter(X, Y, s = 5)
 
 plt.plot(
-    inputs.P[:, 0],
+    X,
     Y_pred,
     label="Prediction"
 )
