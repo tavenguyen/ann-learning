@@ -197,13 +197,22 @@ class Activation_Linear:
     def backward(self, dvalues):
         self.dinputs = dvalues.copy()
 
+class Activation_ReLU:
+    def forward(self, inputs):
+        self.inputs = inputs
+        self.output = np.maximum(0, inputs)
+    
+    def backward(self, dvalues):
+        self.dinputs = dvalues.copy()
+        self.dinputs[self.inputs <= 0] = 0
+
 class Loss:
     def calculate(self, y_pred, y_true):
         samples = self.forward(y_pred, y_true)
         self.output = np.mean(samples)
         return self.output
     
-class Loss_MeanSquaredError:
+class Loss_MeanSquaredError(Loss):
     def forward(self, y_pred, y_true):
         squared_error = (y_pred - y_true) ** 2
         loss = np.mean(squared_error, axis = 1)
@@ -213,13 +222,13 @@ class Loss_MeanSquaredError:
     def backward(self, y_pred, y_true):
         N = y_pred.shape[0]
         M = y_pred.shape[1]
-        
+
         self.dinputs = 2 * (y_pred - y_true) / (N * M)
         return self.dinputs
 
 class DenseLayer:
     def __init__(self, n_neurons, n_inputs):
-        self.weights = np.random.randn(n_inputs, n_neurons)
+        self.weights = 0.01 * np.random.randn(n_inputs, n_neurons)
         self.biases = np.zeros((1, n_neurons))
 
     def forward(self, inputs):
@@ -228,13 +237,76 @@ class DenseLayer:
     
     def backward(self, dvalues):
         self.dweights = np.dot(self.inputs.T, dvalues)
-        self.dbiases = np.sum(dvalues, axis = 1, keepdims = True)
-        dinputs = np.dot(dvalues, self.weights.T)
-        return dinputs
+        self.dbiases = np.sum(dvalues, axis = 0, keepdims = True)
+        self.dinputs = np.dot(dvalues, self.weights.T)
     
+N = 10
 np.random.seed(0)
+epochs = 10000
+learning_rate = 0.001
 
-inputs = Quadratic(n_points=10, n_classes=1, n_dimensions=2)
-layer1 = DenseLayer(n_inputs=1, n_neurons=8)
+inputs = Quadratic(n_points=N, n_classes=1, n_dimensions=2, noise_std=5.0)
+plt.scatter(inputs.P[:, 0], inputs.P[:, 1], c = inputs.L, s = 40)
+plt.show()
+
+layer1 = DenseLayer(n_inputs=2, n_neurons=8)
+activation1 = Activation_Linear()
 layer2 = DenseLayer(n_inputs=8, n_neurons=1)
-loss_function = 
+activation2 = Activation_Linear()
+loss_function = Loss_MeanSquaredError()
+optimizer = Optimizer_Adam(learning_rate = learning_rate)
+
+X = np.zeros((N, 2))
+Y = np.zeros((N, 1))
+
+for i in range(N):
+    X[i, 0] = inputs.P[i, 0] ** 2
+    X[i, 1] = inputs.P[i, 0]
+    Y[i, 0] = inputs.P[i, 1]
+
+for epoch in range(epochs):
+    layer1.forward(X)
+    activation1.forward(layer1.output)
+    layer2.forward(activation1.output)
+    activation2.forward(layer2.output)
+
+    loss = loss_function.calculate(activation2.output, Y)
+
+    # backward pass
+    loss_function.backward(activation2.output, Y)
+    activation2.backward(loss_function.dinputs)
+    layer2.backward(activation2.dinputs)
+    activation1.backward(layer2.dinputs)
+    layer1.backward(activation1.dinputs)
+
+    # optimizer
+    # optimizer.pre_update_params()
+    optimizer.update_params(layer1)
+    optimizer.update_params(layer2)
+    optimizer.post_update_params()
+
+    if epoch % 500 == 0:
+        print(loss)
+
+weights = np.dot(layer1.weights, layer2.weights)
+a = weights[0, 0]
+b = weights[1, 0]
+c = np.dot(layer1.biases, layer2.weights) + layer2.biases
+
+Y_pred = a * inputs.P[:, 0] ** 2 + b * inputs.P[:, 0] + c[0, 0]
+
+print("Learned parameters:")
+print("a =", a)
+print("b =", b)
+print("c =", c)
+
+plt.scatter(inputs.P[:, 0], inputs.P[:, 1], c = inputs.L, s = 40)
+
+plt.plot(
+    inputs.P[:, 0],
+    Y_pred,
+    label="Prediction"
+)
+
+plt.legend()
+plt.show()
