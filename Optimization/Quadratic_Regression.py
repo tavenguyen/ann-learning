@@ -241,10 +241,9 @@ class DenseLayer:
         self.dinputs = np.dot(dvalues, self.weights.T)
     
 N = 10
-for seed in range(10):
-    np.random.seed(seed)
+np.random.seed(0)
 
-epochs = 10000
+epochs = 20000
 learning_rate = 0.001
 
 inputs = Quadratic(n_points=N, n_classes=1, n_dimensions=2, noise_std=2.0)
