@@ -249,7 +249,7 @@ activation1 = Activation_Linear()
 loss_function = Loss_MeanSquaredError()
 optimizer = Optimizer_Adam(learning_rate = learning_rate)
 
-X_input = np.zeros((N, 2))
+# X_input = np.zeros((N, 2))
 # for i in range(N):
 #     X_input[i, 0] = X[i] ** 2 -> X[i, 0] ** 2
 #     X_input[i, 1] = X[i] -> X[i, 0] 
