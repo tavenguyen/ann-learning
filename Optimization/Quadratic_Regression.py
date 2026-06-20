@@ -231,14 +231,14 @@ class DenseLayer:
         self.dbiases = np.sum(dvalues, axis = 0, keepdims = True)
         self.dinputs = np.dot(dvalues, self.weights.T)
     
-N = 10
+N = 50
 np.random.seed(0)
 
 epochs = 20000
 learning_rate = 0.001
 
 inputs = Quadratic(n_points=N, a = 2.0, b = -3.0, c = 4.0, noise_std=2.0, x_min=-5.0, x_max=5.0)
-X = inputs.X
+X = inputs.X    
 Y = inputs.Y
 
 plt.scatter(X, Y, s = 5)
@@ -250,9 +250,14 @@ loss_function = Loss_MeanSquaredError()
 optimizer = Optimizer_Adam(learning_rate = learning_rate)
 
 X_input = np.zeros((N, 2))
-for i in range(N):
-    X_input[i, 0] = X[i] ** 2
-    X_input[i, 1] = X[i]
+# for i in range(N):
+#     X_input[i, 0] = X[i] ** 2 -> X[i, 0] ** 2
+#     X_input[i, 1] = X[i] -> X[i, 0] 
+
+X_input = np.c_[
+    X ** 2,
+    X
+]
 
 for epoch in range(epochs):
     layer1.forward(X_input)
