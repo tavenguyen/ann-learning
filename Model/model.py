@@ -23,6 +23,38 @@ class Activation_ReLU:
         self.dinputs = dvalues.copy()
         self.dinputs[self.inputs <= 0] = 0
 
+class Optimizer_SGD:
+    def __init__(self, learning_rate):
+        self.learning_rate = learning_rate
+        self.iterations = 0
+
+    def pre_update_params(self):
+        self.learning_rate = self.learning_rate
+
+    def update_params(self, layer):
+        layer.weights -= self.learning_rate * layer.dweights
+        layer.biases -= self.learning_rate * layer.dbiases
+
+    def post_update_params(self):
+        self.iterations += 1
+
+class Optimizer_SGD_Decay:
+    def __init__(self, learning_rate, decay_rate):
+        self.intial_lr = learning_rate
+        self.decay_rate = decay_rate
+        self.current_lr = learning_rate
+        self.iterations = 0
+
+    def pre_update_params(self):
+        self.current_lr = (self.intial_lr / (1 + self.decay_rate * self.iterations))
+
+    def update_params(self, layer):
+        self.weights -= self.current_lr * self.dweights
+        self.biases -= self.current_lr * self.dbiases
+    
+    def post_update_params(self):
+        self.iterations += 1
+
 class Model:
     def __init__(self):
         self.layers = []
@@ -30,4 +62,10 @@ class Model:
     # dùng để thêm layer và activation
     def add(self, layer):
         self.layers.append(layer)
+
+    def set(self, loss, optimizer, accuracy = None):
+        self.loss = loss
+        self.optimizer = optimizer
+        self.accuracy = accuracy
+
     
