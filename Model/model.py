@@ -55,6 +55,27 @@ class Optimizer_SGD_Decay:
     def post_update_params(self):
         self.iterations += 1
 
+class Optimizer_Momentum:
+    def __init__(self, beta, learning_rate):
+        self.learning_rate = learning_rate
+        self.beta = beta
+        self.weight_velocity = 0
+        self.bias_velocity = 0
+        self.iterations = 0
+
+    def pre_update_params(self):
+        self.learning_rate = self.learning_rate
+
+    def update_params(self, layer):
+        self.weight_velocity = self.beta * self.weight_velocity + self.learning_rate * layer.dweights
+        self.bias_velocity = self.beta * self.bias_velocity + self.learning_rate * layer.dbiases
+
+        layer.weights -= self.learning_rate * self.weight_velocity
+        layer.biases -= self.learning_rate * self.bias_velocity
+
+    def post_update_params(self):
+        self.iterations += 1
+
 class Model:
     def __init__(self):
         self.layers = []
