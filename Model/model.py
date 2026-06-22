@@ -49,8 +49,8 @@ class Optimizer_SGD_Decay:
         self.current_lr = (self.intial_lr / (1 + self.decay_rate * self.iterations))
 
     def update_params(self, layer):
-        self.weights -= self.current_lr * self.dweights
-        self.biases -= self.current_lr * self.dbiases
+        layer.weights -= self.current_lr * layer.dweights
+        layer.biases -= self.current_lr * layer.dbiases
     
     def post_update_params(self):
         self.iterations += 1
@@ -120,8 +120,8 @@ class Optimizer_AdaGrad:
 
         layer.weight_cache += layer.dweights ** 2
         layer.bias_cache += layer.dbiases ** 2
-        self.weights -= self.learning_rate * (np.sqrt(layer.weight_cache) + self.epsilon) * layer.dweights
-        self.biases -= self.learning_rate * (np.sqrt(layer.bias_cache) + self.epsilon) * layer.dbiases
+        layer.weights -= self.learning_rate / (np.sqrt(layer.weight_cache) + self.epsilon) * layer.dweights
+        layer.biases -= self.learning_rate / (np.sqrt(layer.bias_cache) + self.epsilon) * layer.dbiases
 
     def post_update_params(self):
         self.iterations += 1
