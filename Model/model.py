@@ -55,23 +55,25 @@ class Optimizer_SGD_Decay:
     def post_update_params(self):
         self.iterations += 1
 
-class Optimizer_Momentum:
+class Optimizer_SGD_Momentum:
     def __init__(self, beta, learning_rate):
         self.learning_rate = learning_rate
         self.beta = beta
-        self.weight_velocity = 0
-        self.bias_velocity = 0
         self.iterations = 0
 
     def pre_update_params(self):
         self.learning_rate = self.learning_rate
 
     def update_params(self, layer):
-        self.weight_velocity = self.beta * self.weight_velocity + self.learning_rate * layer.dweights
-        self.bias_velocity = self.beta * self.bias_velocity + self.learning_rate * layer.dbiases
+        if not hasattr(layer, "weight_velocity"):
+            layer.weight_velocity = np.zeros_like(layer.weights)
+            layer.bias_velocity = np.zeros_like(layer.biases)
 
-        layer.weights -= self.learning_rate * self.weight_velocity
-        layer.biases -= self.learning_rate * self.bias_velocity
+        layer.weight_velocity = self.beta * layer.weight_velocity + self.learning_rate * layer.dweights
+        layer.bias_velocity = self.beta * layer.bias_velocity + self.learning_rate * layer.dbiases
+
+        layer.weights -= self.learning_rate * layer.weight_velocity
+        layer.biases -= self.learning_rate * layer.bias_velocity
 
     def post_update_params(self):
         self.iterations += 1
@@ -94,6 +96,25 @@ class Optimizer_Momentum_Decay:
 
         layer.weights -= self.learning_rate * self.weight_velocity
         layer.biases -= self.learning_rate * self.bias_velocity
+
+    def post_update_params(self):
+        self.iterations += 1
+
+class Optimizer_AdaGrad:
+    def __init__(self, learning_rate, epsilon = 1e-7):
+        self.weight_cache = 0
+        self.bias_cache = 0
+        self.initial_lr = learning_rate
+        self.epsilon = epsilon
+    
+    def pre_update_params(self):
+        self.learning_rate = self.learning_rate
+
+    def update_params(self, layer):
+        self.weight_cache += layer.dweights ** 2
+        self.bias_cache += layer.dbiases ** 2
+        self.weights -= self.learning_rate * (np.sqrt(self.weight_cache) + self.epsilon) * self.dweights
+        self.biases -= self.learning_rate * (np.sqrt(self.bias_cache) + self.epsilon) * self.dbiases
 
     def post_update_params(self):
         self.iterations += 1
