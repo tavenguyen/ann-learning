@@ -91,8 +91,12 @@ class Optimizer_Momentum_Decay:
         self.learning_rate = self.initial_lr * 1 / (1 + self.decay_rate * self.iterations)
 
     def update_params(self, layer):
-        self.weight_velocity = self.beta * self.weight_velocity + self.learning_rate * layer.dweights
-        self.bias_velocity = self.beta * self.bias_velocity + self.learning_rate * layer.dbiases
+        if not hasattr(layer, "weight_velocity"):
+            layer.weight_velocity = np.zeros_like(layer.weights)
+            layer.bias_velocity = np.zeros_like(layer.biases)
+
+        layer.weight_velocity = self.beta * layer.weight_velocity + self.learning_rate * layer.dweights
+        layer.bias_velocity = self.beta * layer.bias_velocity + self.learning_rate * layer.dbiases
 
         layer.weights -= self.learning_rate * self.weight_velocity
         layer.biases -= self.learning_rate * self.bias_velocity
