@@ -106,8 +106,9 @@ class Optimizer_Momentum_Decay:
 
 class Optimizer_AdaGrad:
     def __init__(self, learning_rate, epsilon = 1e-7):
-        self.initial_lr = learning_rate
+        self.learning_rate = learning_rate
         self.epsilon = epsilon
+        self.iterations = 0
     
     def pre_update_params(self):
         self.learning_rate = self.learning_rate
@@ -121,6 +122,31 @@ class Optimizer_AdaGrad:
         layer.bias_cache += layer.dbiases ** 2
         self.weights -= self.learning_rate * (np.sqrt(layer.weight_cache) + self.epsilon) * layer.dweights
         self.biases -= self.learning_rate * (np.sqrt(layer.bias_cache) + self.epsilon) * layer.dbiases
+
+    def post_update_params(self):
+        self.iterations += 1
+
+class Optimizer_RMSProp:
+    def __init__(self, learning_rate, p = 0.9, epsilon = 1e-7):
+        self.learning_rate = learning_rate
+        self.iterations = 0
+        # hệ số giữ lại thông tin
+        self.p = p
+        self.epsilon = epsilon
+
+    def pre_update_params(self):
+        self.learning_rate = self.learning_rate
+    
+    def update_params(self, layer):
+        if not hasattr(layer, "moving_average_weight"):
+            layer.moving_average_weight = np.zeros_like(layer.weights)
+            layer.moving_average_bias = np.zeros_like(layer.biases)
+
+        layer.moving_average_weight = self.p * layer.moving_average_weight + (1 - self.p) * layer.dweights ** 2
+        layer.moving_average_bias = self.p * layer.moving_average_bias + (1 - self.p) * layer.dbiases ** 2
+
+        layer.weights -= self.learning_rate * layer.dweights / (np.sqrt(layer.moving_average_weight) + self.epsilon)
+        layer.biases -= self.learning_rate * layer.dbiases / (np.sqrt(layer.moving_average_bias) + self.epsilon)
 
     def post_update_params(self):
         self.iterations += 1
