@@ -72,8 +72,8 @@ class Optimizer_SGD_Momentum:
         layer.weight_velocity = self.beta * layer.weight_velocity + self.learning_rate * layer.dweights
         layer.bias_velocity = self.beta * layer.bias_velocity + self.learning_rate * layer.dbiases
 
-        layer.weights -= self.learning_rate * layer.weight_velocity
-        layer.biases -= self.learning_rate * layer.bias_velocity
+        layer.weights -= layer.weight_velocity
+        layer.biases -= layer.bias_velocity
 
     def post_update_params(self):
         self.iterations += 1
