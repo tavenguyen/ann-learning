@@ -399,3 +399,7 @@ class Model:
                         f"epoch={epoch}, "
                         f"loss={loss:.6f}"
                     )
+
+        # dự đoán sau khi train, chỉ gồm forward. Khác với training gồm forward, backward, update
+        def predict(self, inputs):
+            return self.forward(inputs)
