@@ -71,7 +71,7 @@ class Activation_Softmax_Loss_CategoricalCrossEntropy:
 class Loss_MeanSquaredError(Loss):
     def forward(self, y_pred, y_true):
         squared_error = (y_pred - y_true) ** 2
-        error = np.sum(squared_error, axis = 0)
+        error = np.sum(squared_error, axis = 1)
         return error
 
     def backward(self, y_pred, y_true):
