@@ -163,7 +163,7 @@ class Optimizer_RMSProp:
         self.iterations += 1
 
 class Optimizer_Adam:
-    def __init__(self, learning_rate, beta1, beta2, epsilon = 1e-7):
+    def __init__(self, learning_rate = 0.001, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-7):
         self.current_lr = learning_rate
         self.beta1 = beta1
         self.beta2 = beta2
