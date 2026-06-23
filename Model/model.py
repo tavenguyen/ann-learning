@@ -94,8 +94,6 @@ class Optimizer_Momentum_Decay:
         self.initial_lr = learning_rate
         self.decay_rate = decay_rate
         self.beta = beta
-        self.weight_velocity = 0
-        self.bias_velocity = 0
         self.iterations = 0
 
     def pre_update_params(self):
@@ -109,8 +107,8 @@ class Optimizer_Momentum_Decay:
         layer.weight_velocity = self.beta * layer.weight_velocity + self.learning_rate * layer.dweights
         layer.bias_velocity = self.beta * layer.bias_velocity + self.learning_rate * layer.dbiases
 
-        layer.weights -= self.learning_rate * self.weight_velocity
-        layer.biases -= self.learning_rate * self.bias_velocity
+        layer.weights -= self.learning_rate * layer.weight_velocity
+        layer.biases -= self.learning_rate * layer.bias_velocity
 
     def post_update_params(self):
         self.iterations += 1
