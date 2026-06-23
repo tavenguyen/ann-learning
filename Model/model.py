@@ -82,6 +82,65 @@ class Loss_MeanSquaredError(Loss):
         self.dinputs = (2 * (y_pred - y_true)) / (outputs * samples)
         return self.dinputs
 
+#----------------------------- Accuracy -------------------------------#
+class Accuracy:
+    def calculate(self, y_pred, y_true):
+        comparisions = (y_pred == y_true)
+        accuracy = np.mean(comparisions)
+        return accuracy
+
+class Accuracy_RegressionTolerance(Accuracy):
+    def __init__(self, tolerance=None):
+        self.tolerance = tolerance
+        self.new_pass()
+
+    def init(self, y):
+        if self.tolerance is None:
+            self.tolerance = (
+                np.std(y)
+                / 250
+            )
+
+    def compare(
+        self,
+        predictions,
+        y
+    ):
+        if self.tolerance is None:
+            raise RuntimeError(
+                "Cần gọi init(y) trước khi tính Accuracy."
+            )
+
+        return (
+            np.abs(
+                predictions - y
+            )
+            <= self.tolerance
+        )
+
+class Accuracy_CategoricalClassification:
+    def calculate(self, predictions, y_true):
+        if predictions.ndim == 2:
+            predicted_classes = np.argmax(
+                predictions,
+                axis=1
+            )
+        else:
+            predicted_classes = predictions
+
+        if y_true.ndim == 2:
+            true_classes = np.argmax(
+                y_true,
+                axis=1
+            )
+        else:
+            true_classes = y_true
+
+        return (
+            predicted_classes
+            == true_classes
+        )
+
 #----------------------------- Optimizer-------------------------------#
 class Optimizer_SGD:
     def __init__(self, learning_rate = 0.01):
