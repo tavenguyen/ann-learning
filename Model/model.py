@@ -362,3 +362,12 @@ class Model:
         for layer in reversed(self.layers):
             layer.backward(dvalues)
             dvalues = layer.dinputs
+
+    def update_params(self):
+        self.optimizer.pre_update_params()
+
+        # Optimizer chỉ update layer có weights.
+        for layer in self.trainable_layers:
+            layer.optimizer.update_params()
+
+        self.optimizer.post_update_params()
