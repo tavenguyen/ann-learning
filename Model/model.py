@@ -64,8 +64,22 @@ class Activation_Softmax_Loss_CategoricalCrossEntropy:
         # dZ = A - Z
         self.dinputs = dvalues.copy()
         self.dinputs[range(samples), y_true] -= 1
-        
+
         self.dinputs /= samples
+        return self.dinputs
+
+class Loss_MeanSquaredError(Loss):
+    def forward(self, y_pred, y_true):
+        squared_error = (y_pred - y_true) ** 2
+        error = np.sum(squared_error, axis = 0)
+        return error
+
+    def backward(self, y_pred, y_true):
+        samples = y_pred.shape[0] 
+        outputs = y_pred.shape[1]
+        # y_pred, y_true co shape (N, M) voi N la so luong mau, M la so output trong moi mau
+
+        self.dinputs = (2 * (y_pred - y_true)) / (outputs * samples)
         return self.dinputs
 
 #----------------------------- Optimizer-------------------------------#
