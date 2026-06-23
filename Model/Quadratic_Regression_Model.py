@@ -14,7 +14,7 @@ class Quadratic:
         noise = np.random.randn(n_points, 1) * noise_std
         self.Y = (a * self.X ** 2 + b * self.X + c) + noise
 
-inputs = Quadratic(n_points = 10, a = 2.0, b = 3.0, c = 5.0, noise_std=2.0)
+inputs = Quadratic(n_points = 100, a = 2.0, b = 3.0, c = 5.0, noise_std=2.0)
 X = inputs.X
 Y = inputs.Y
 plt.scatter(X, Y, s = 5)
