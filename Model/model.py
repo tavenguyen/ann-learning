@@ -120,8 +120,8 @@ class Optimizer_AdaGrad:
 
         layer.weight_cache += layer.dweights ** 2
         layer.bias_cache += layer.dbiases ** 2
-        layer.weights -= (self.learning_rate / (np.sqrt(layer.weight_cache) + self.epsilon)) * layer.dweights
-        layer.biases -= (self.learning_rate / (np.sqrt(layer.bias_cache) + self.epsilon)) * layer.dbiases
+        layer.weights -= (self.learning_rate * layer.dweights / (np.sqrt(layer.weight_cache) + self.epsilon))
+        layer.biases -= (self.learning_rate * layer.dbiases / (np.sqrt(layer.bias_cache) + self.epsilon))
 
     def post_update_params(self):
         self.iterations += 1
