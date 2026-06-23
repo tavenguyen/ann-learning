@@ -175,10 +175,10 @@ class Optimizer_Adam:
 
     def update_params(self, layer):
         if not hasattr(layer, "cache_weight"):
-            layer.cache_weight_g = np.zeros(layer.weights)
-            layer.cache_weight_g2 = np.zeros(layer.weights)
-            layer.cache_bias_g = np.zeros(layer.biases)
-            layer.cache_bias_g2 = np.zeros(layer.biases)
+            layer.cache_weight_g = np.zeros_like(layer.weights)
+            layer.cache_weight_g2 = np.zeros_like(layer.weights)
+            layer.cache_bias_g = np.zeros_like(layer.biases)
+            layer.cache_bias_g2 = np.zeros_like(layer.biases)
 
         layer.cache_weight_g = self.beta1 * layer.cache_weight_g + (1 - self.beta1) * layer.dweights
         layer.cache_weight_g2 = self.beta2 * layer.cache_weight_g2 + (1 - self.beta2) * layer.dweights ** 2
@@ -186,11 +186,11 @@ class Optimizer_Adam:
         layer.cache_bias_g = self.beta1 * layer.cache_bias_g + (1 - self.beta1) * layer.dbiases
         layer.cache_bias_g2 = self.beta2 * layer.cache_bias_g2 + (1 - self.beta2) * layer.dbiases ** 2
 
-        layer.cache_weight_g_correction = layer.cache_weight_g / (1 - self.beta1 ** self.iterations)
-        layer.cache_weight_g2_correction = layer.cache_weight_g2 / (1 - self.beta2 ** self.iterations)
+        layer.cache_weight_g_correction = layer.cache_weight_g / (1 - self.beta1 ** (self.iterations + 1))
+        layer.cache_weight_g2_correction = layer.cache_weight_g2 / (1 - self.beta2 ** (self.iterations + 1))
 
-        layer.cache_bias_g_correction = layer.cache_bias_g / (1 - self.beta1 ** self.iterations)
-        layer.cache_bias_g2_correction = layer.cache_bias_g2 / (1 - self.beta2 ** self.iterations)
+        layer.cache_bias_g_correction = layer.cache_bias_g / (1 - self.beta1 ** (self.iterations + 1))
+        layer.cache_bias_g2_correction = layer.cache_bias_g2 / (1 - self.beta2 ** (self.iterations + 1))
 
         layer.weights -= self.current_lr * layer.cache_weight_g_correction / (np.sqrt(layer.cache_weight_g2_correction) + self.epsilon)
         layer.biases -= self.current_lr * layer.cache_bias_g_correction / (np.sqrt(layer.cache_bias_g2_correction) + self.epsilon)
