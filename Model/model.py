@@ -35,7 +35,7 @@ class Activation_ReLU:
         return self.dinputs
 
 class Optimizer_SGD:
-    def __init__(self, learning_rate):
+    def __init__(self, learning_rate = 0.01):
         self.learning_rate = learning_rate
         self.iterations = 0
 
@@ -50,7 +50,7 @@ class Optimizer_SGD:
         self.iterations += 1
 
 class Optimizer_SGD_Decay:
-    def __init__(self, learning_rate, decay_rate):
+    def __init__(self, learning_rate = 0.01, decay_rate = 1e-3):
         self.initial_lr = learning_rate
         self.decay_rate = decay_rate
         self.current_lr = learning_rate
@@ -67,7 +67,7 @@ class Optimizer_SGD_Decay:
         self.iterations += 1
 
 class Optimizer_SGD_Momentum:
-    def __init__(self, beta, learning_rate):
+    def __init__(self, beta = 0.9, learning_rate = 0.01):
         self.learning_rate = learning_rate
         self.beta = beta
         self.iterations = 0
@@ -90,7 +90,7 @@ class Optimizer_SGD_Momentum:
         self.iterations += 1
 
 class Optimizer_Momentum_Decay:
-    def __init__(self, beta, learning_rate, decay_rate):
+    def __init__(self, beta = 0.9, learning_rate = 0.01, decay_rate = 1e-3):
         self.initial_lr = learning_rate
         self.decay_rate = decay_rate
         self.beta = beta
@@ -115,7 +115,7 @@ class Optimizer_Momentum_Decay:
         self.iterations += 1
 
 class Optimizer_AdaGrad:
-    def __init__(self, learning_rate, epsilon = 1e-7):
+    def __init__(self, learning_rate = 0.01, epsilon = 1e-7):
         self.learning_rate = learning_rate
         self.epsilon = epsilon
         self.iterations = 0
@@ -137,7 +137,7 @@ class Optimizer_AdaGrad:
         self.iterations += 1
 
 class Optimizer_RMSProp:
-    def __init__(self, learning_rate, p = 0.9, epsilon = 1e-7):
+    def __init__(self, learning_rate = 0.001, p = 0.9, epsilon = 1e-7):
         self.learning_rate = learning_rate
         self.iterations = 0
         # hệ số giữ lại thông tin
