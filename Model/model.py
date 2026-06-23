@@ -341,4 +341,24 @@ class Model:
             if hasattr(layer, "weights"):
                 self.trainable_layers.append(layer)
 
+    # Dùng training=True để sau này hỗ trợ Dropout hoặc BatchNorm.
+    # Với layer không cần training, ta gọi bình thường.
+    def forward(self, X, training = True):
+        output = X
+        for layer in self.layers:
+            try:
+                layer.forward(output, training = training)
+            except(TypeError):
+                layer.forward(output)
+            
+            output = layer.output
+        
+        return output
     
+    def backward(self, y_pred, y_true):
+        self.loss.backward(y_pred, y_true)
+        dvalues =  self.loss.dinputs
+
+        for layer in reversed(self.layers):
+            layer.backward(dvalues)
+            dvalues = layer.dinputs
