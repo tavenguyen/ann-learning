@@ -19,7 +19,8 @@ class DenseLayer:
 class Activation_Linear:
     def forward(self, inputs):
         self.inputs = inputs
-        return inputs
+        self.output = self.inputs
+        return self.output
     
     def backward(self, dvalues):
         self.dinputs = dvalues.copy()
@@ -368,7 +369,7 @@ class Model:
 
         # Optimizer chỉ update layer có weights.
         for layer in self.trainable_layers:
-            layer.optimizer.update_params()
+            self.optimizer.update_params(layer)
 
         self.optimizer.post_update_params()
 
