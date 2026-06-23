@@ -22,6 +22,7 @@ class Activation_ReLU:
     def backward(self, dvalues):
         self.dinputs = dvalues.copy()
         self.dinputs[self.inputs <= 0] = 0
+        return self.dinputs
 
 class Optimizer_SGD:
     def __init__(self, learning_rate):
