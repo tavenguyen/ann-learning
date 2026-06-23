@@ -40,13 +40,13 @@ class Optimizer_SGD:
 
 class Optimizer_SGD_Decay:
     def __init__(self, learning_rate, decay_rate):
-        self.intial_lr = learning_rate
+        self.initial_lr = learning_rate
         self.decay_rate = decay_rate
         self.current_lr = learning_rate
         self.iterations = 0
 
     def pre_update_params(self):
-        self.current_lr = (self.intial_lr / (1 + self.decay_rate * self.iterations))
+        self.current_lr = (self.initial_lr / (1 + self.decay_rate * self.iterations))
 
     def update_params(self, layer):
         layer.weights -= self.current_lr * layer.dweights
