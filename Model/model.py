@@ -400,6 +400,18 @@ class Model:
                         f"loss={loss:.6f}"
                     )
 
-        # dự đoán sau khi train, chỉ gồm forward. Khác với training gồm forward, backward, update
-        def predict(self, inputs):
-            return self.forward(inputs)
+    # dự đoán sau khi train, chỉ gồm forward. Khác với training gồm forward, backward, update
+    def predict(self, inputs):
+        return self.forward(inputs)
+    
+    # đo loss và accuracy trên validation test 
+    def evaluate(self, X_validation, y_validation):
+        y_pred = self.forward(X_validation)
+
+        loss = self.loss.calculate(y_pred, y_validation)
+        if self.accuracy is not None:
+            accuracy = self.accuracy.calculate(y_pred, y_validation)
+        else:
+            accuracy = None
+        
+        return loss, accuracy
