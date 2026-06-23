@@ -15,6 +15,7 @@ class DenseLayer:
         self.dinputs = np.dot(dvalues, self.weights.T)
         return self.dinputs
 
+#----------------------------- Activation -------------------------------#
 class Activation_Linear:
     def forward(self, inputs):
         self.inputs = inputs
@@ -34,6 +35,40 @@ class Activation_ReLU:
         self.dinputs[self.inputs <= 0] = 0
         return self.dinputs
 
+#----------------------------- Loss -------------------------------#
+class Loss:
+    def calculate(self, y_pred, y_true):
+        sample_losses = self.forward(y_pred, y_true)
+        self.output = np.mean(sample_losses)
+        return self.output
+    
+class Activation_Softmax_Loss_CategoricalCrossEntropy:
+    def forward(self, y_pred, y_true):
+        exp_values = np.exp(y_pred - np.max(y_pred, axis = 1, keepdims = True))
+        self.output = exp_values / np.sum(exp_values, axis = 1, keepdims = True)
+        
+        samples = len(y_pred)
+        y_pred_clipped = np.clip(y_pred, 1e-7, 1 - 1e-7)
+
+        # y_true =[0, 1, 1]
+        if len(y_true.shape) == 1:
+            confidence_scores = y_pred_clipped[samples, y_true]
+        if len(y_true.shape) == 2:
+            confidence_scores = np.sum(y_pred_clipped * y_true, axis = 1, keepdims = True)
+
+        confidence_scores = -np.log(confidence_scores)
+        return confidence_scores
+    def backward(self, dvalues, y_true):
+        samples = len(dvalues)
+
+        # dZ = A - Z
+        self.dinputs = dvalues.copy()
+        self.dinputs[range(samples), y_true] -= 1
+        
+        self.dinputs /= samples
+        return self.dinputs
+
+#----------------------------- Optimizer-------------------------------#
 class Optimizer_SGD:
     def __init__(self, learning_rate = 0.01):
         self.learning_rate = learning_rate
