@@ -371,3 +371,31 @@ class Model:
             layer.optimizer.update_params()
 
         self.optimizer.post_update_params()
+
+    # forward -> loss -> accuracy -> backward -> update params -> print
+    def train(self, x, y, epochs = 10000, print_every = 100):
+        for epoch in range(epochs):
+            y_pred = self.forward(x)
+
+            loss = self.loss.calculate(y_pred, y)
+            if self.accuracy is not None:
+                accuracy = self.accuracy.calculate(y_pred, y)
+            else:
+                accuracy = None
+            
+            self.backward(y_pred, y)
+
+            self.update_params()
+
+            if epoch % print_every == 0:
+                if accuracy is not None:
+                    print(
+                        f"epoch={epoch}, "
+                        f"loss={loss:.6f}, "
+                        f"accuracy={accuracy:.6f}"
+                    )
+                else:
+                    print(
+                        f"epoch={epoch}, "
+                        f"loss={loss:.6f}"
+                    )
