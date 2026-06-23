@@ -328,9 +328,17 @@ class Model:
     def add(self, layer):
         self.layers.append(layer)
 
+    # dùng để gắn component cho model
     def set(self, loss, optimizer, accuracy = None):
         self.loss = loss
         self.optimizer = optimizer
         self.accuracy = accuracy
+
+    # tìm các layer có thể train
+    def finalize(self):
+        self.trainable_layers = []
+        for layer in self.layers:
+            if hasattr(layer, "weights"):
+                self.trainable_layers.append(layer)
 
     
