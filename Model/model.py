@@ -142,6 +142,36 @@ class Regularization_L1L2:
         l2_gradient = 2 * self.l2_strength * weights
         return l1_gradient + l2_gradient
 
+# chi su dung trong training
+class Layer_Dropout:
+    def __init__(self, dropout_rate):
+        if dropout_rate < 0 or dropout_rate >= 1:
+            raise ValueError("dropout_rate phải thuộc khoảng [0, 1).")
+
+        self.dropout_rate = dropout_rate
+        self.keep_probability = 1.0 - dropout_rate
+
+    def forward(self, inputs, training=True):
+        self.inputs = inputs
+        if not training:
+            self.output = inputs.copy()
+            return
+
+        self.binary_mask = (
+            np.random.binomial(
+                1,
+                self.keep_probability,
+                size=inputs.shape
+            )
+            / self.keep_probability
+        )
+
+        self.output = inputs * self.binary_mask
+
+    def backward(self, dvalues):
+        self.dinputs = dvalues * self.binary_mask
+        return self.dinputs
+
 #----------------------------- Activation -------------------------------#
 class Activation_Linear:
     def forward(self, inputs):
