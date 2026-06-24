@@ -515,12 +515,23 @@ class Model:
 
         self.optimizer.post_update_params()
 
+    def get_regularization_loss(self) -> float:
+        reg_loss = 0.0
+        for layer in getattr(self, "trainable_layers", []):
+            if getattr(layer, "weight_regularizer", None) is not None:
+                reg_loss += layer.weight_regularizer.forward(layer.weights)
+            if getattr(layer, "bias_regularizer", None) is not None:
+                reg_loss += layer.bias_regularizer.forward(layer.biases)
+            return reg_loss
+
     # forward -> loss -> accuracy -> backward -> update params -> print
     def train(self, x, y, epochs = 10000, print_every = 100):
         for epoch in range(epochs):
             y_pred = self.forward(x)
 
-            loss = self.loss.calculate(y_pred, y)
+            data_loss = self.loss.calculate(y_pred, y)
+            reg_loss = self.get_regularization_loss()
+            total_loss = data_loss + reg_loss
             if self.accuracy is not None:
                 accuracy = self.accuracy.calculate(y_pred, y)
             else:
@@ -532,16 +543,9 @@ class Model:
 
             if epoch % print_every == 0:
                 if accuracy is not None:
-                    print(
-                        f"epoch={epoch}, "
-                        f"loss={loss:.6f}, "
-                        f"accuracy={accuracy:.6f}"
-                    )
+                    print(f"epoch={epoch}, loss={total_loss:.6f}, data_loss={data_loss:.6f}, reg_loss={reg_loss:.6f}, accuracy={accuracy:.6f}")
                 else:
-                    print(
-                        f"epoch={epoch}, "
-                        f"loss={loss:.6f}"
-                    )
+                    print(f"epoch={epoch}, loss={total_loss:.6f}, data_loss={data_loss:.6f}, reg_loss={reg_loss:.6f}")
 
     # dự đoán sau khi train, chỉ gồm forward. Khác với training gồm forward, backward, update
     def predict(self, inputs):
@@ -551,10 +555,11 @@ class Model:
     def evaluate(self, X_validation, y_validation):
         y_pred = self.forward(X_validation)
 
-        loss = self.loss.calculate(y_pred, y_validation)
+        data_loss = self.loss.calculate(y_pred, y_validation)
+        reg_loss = self.get_regularization_loss()
         if self.accuracy is not None:
             accuracy = self.accuracy.calculate(y_pred, y_validation)
         else:
             accuracy = None
         
-        return loss, accuracy
+        return (data_loss + reg_loss), accuracy
