@@ -64,16 +64,17 @@ class Activation_Softmax_Loss_CategoricalCrossEntropy:
         negative_log_likelihood = -np.log(correct_conf)
         return negative_log_likelihood
 
-    def backward(self, dvalues, y_true):
-        # dvalues is the y_pred passed by Model.backward but use stored probabilities
+    def backward(self, y_pred, y_true):
+        # Backward API expects (y_pred, y_true) to match Model.backward
+        # Use stored softmax probabilities computed in forward (self.output)
         probs = self.output.copy()
         samples = len(probs)
 
         # If y_true is one-hot encoded, convert to class indices
-        if len(y_true.shape) == 2:
-            y_true = np.argmax(y_true, axis = 1)
+        if y_true.ndim == 2:
+            y_true = np.argmax(y_true, axis=1)
 
-        # gradient of softmax combined with cross-entropy
+        # Gradient for softmax combined with categorical cross-entropy
         probs[range(samples), y_true] -= 1
         self.dinputs = probs / samples
         return self.dinputs
@@ -97,7 +98,7 @@ class Accuracy:
     def __init__(self):
         self.accumulated_sum = 0
         self.accumulated_count = 0
-        
+
     def calculate(self, y_pred, y_true):
         comparisions = (y_pred == y_true)
         accuracy = np.mean(comparisions)
