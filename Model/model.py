@@ -29,7 +29,8 @@ class Activation_Linear:
 class Activation_ReLU:
     def forward(self, inputs):
         self.inputs = inputs
-        return np.maximum(0, self.inputs)
+        self.output = np.maximum(0, self.inputs)
+        return self.output
     
     def backward(self, dvalues):
         self.dinputs = dvalues.copy()
@@ -100,7 +101,7 @@ class Accuracy:
         self.accumulated_count = 0
 
     def calculate(self, y_pred, y_true):
-        comparisions = (y_pred == y_true)
+        comparisions = self.compare(y_pred, y_true)
         accuracy = np.mean(comparisions)
         
         self.accumulated_sum += np.sum(comparisions)
@@ -138,13 +139,13 @@ class Accuracy_RegressionTolerance(Accuracy):
 
         return (np.abs(predictions - y) <= self.tolerance)
 
-class Accuracy_CategoricalClassification:
+class Accuracy_CategoricalClassification(Accuracy):
     # cột: class, hàng: số mẫu
     # predictions = [
     # [0.7, 0.2, 0.1], 
     # [0.5, 0.2, 0.3],
     #]
-    def calculate(self, predictions, y_true):
+    def compare(self, predictions, y_true):
         if predictions.ndim == 2:
             predicted_classes = np.argmax(
                 predictions,
