@@ -45,28 +45,37 @@ class Loss:
     
 class Activation_Softmax_Loss_CategoricalCrossEntropy:
     def forward(self, y_pred, y_true):
+        # Softmax activation
         exp_values = np.exp(y_pred - np.max(y_pred, axis = 1, keepdims = True))
-        self.output = exp_values / np.sum(exp_values, axis = 1, keepdims = True)
+        probs = exp_values / np.sum(exp_values, axis = 1, keepdims = True)
+        self.output = probs
         
-        samples = len(y_pred)
-        y_pred_clipped = np.clip(self.output, 1e-7, 1 - 1e-7)
+        samples = len(probs)
+        # Clip probabilities to prevent log(0)
+        probs_clipped = np.clip(probs, 1e-7, 1 - 1e-7)
 
         # y_true =[0, 1, 1]
         if len(y_true.shape) == 1:
-            confidence_scores = y_pred_clipped[range(samples), y_true]
-        if len(y_true.shape) == 2:
-            confidence_scores = np.sum(y_pred * y_true, axis = 1, keepdims = True)
+            correct_conf = probs_clipped[range(samples), y_true]
+        else:
+            # y_true is one-hot
+            correct_conf = np.sum(probs_clipped * y_true, axis = 1)
 
-        confidence_scores = -np.log(confidence_scores)
-        return confidence_scores
+        negative_log_likelihood = -np.log(correct_conf)
+        return negative_log_likelihood
+
     def backward(self, dvalues, y_true):
-        samples = len(dvalues)
+        # dvalues is the y_pred passed by Model.backward but use stored probabilities
+        probs = self.output.copy()
+        samples = len(probs)
 
-        # dZ = A - Z
-        self.dinputs = dvalues.copy()
-        self.dinputs[range(samples), y_true] -= 1
+        # If y_true is one-hot encoded, convert to class indices
+        if len(y_true.shape) == 2:
+            y_true = np.argmax(y_true, axis = 1)
 
-        self.dinputs /= samples
+        # gradient of softmax combined with cross-entropy
+        probs[range(samples), y_true] -= 1
+        self.dinputs = probs / samples
         return self.dinputs
 
 class Loss_MeanSquaredError(Loss):
@@ -85,6 +94,10 @@ class Loss_MeanSquaredError(Loss):
 
 #----------------------------- Accuracy -------------------------------#
 class Accuracy:
+    def __init__(self):
+        self.accumulated_sum = 0
+        self.accumulated_count = 0
+        
     def calculate(self, y_pred, y_true):
         comparisions = (y_pred == y_true)
         accuracy = np.mean(comparisions)
