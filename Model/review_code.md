@@ -1,297 +1,548 @@
-# Code Review Chuyên sâu — Model/model.py
+# Code Review Chuyên sâu — Model/model.py (ANN Implementation)
 
-## Tóm tắt Executive Summary
-File model.py triển khai một **Feedforward Neural Network (FNN)** với backpropagation, nhưng gặp nhiều vấn đề về **numerical stability**, **API inconsistency**, **state management**, và thiếu **persistence layer (serialization)**. Các lỗi này ảnh hưởng trực tiếp đến **gradient flow** và **model reproducibility**.
+## Executive Summary
+File model.py triển khai **Feedforward Neural Network (FNN)** với **backpropagation** và nhiều optimizer (SGD, Momentum, Adam, RMSProp). Mã hoạt động cơ bản nhưng thiếu:
+1. **Model persistence** (Save/Load/Create) → mỗi lần chạy lại phải retrain
+2. **Numerical stability** (incorrect Softmax+CCE, no gradient clipping)
+3. **API consistency** (Loss backward signature, Accuracy state management)
+4. **Training robustness** (no mini-batch, no early stopping, no validation protocol)
 
 ---
 
-## 1. Lỗi Numerical & Gradient Flow (Critical — Priority 1)
+## PHẦN 1: LỖI CRITICAL (TIER 1) — PHẢI SỬA NGAY
 
-### 1.1 Softmax + Categorical Cross-Entropy Bug
+### 1. Model Persistence — COMPLETELY MISSING (Ưu tiên 1.1)
+
 **Vấn đề:**
-- **Clip sai vị trí:** Áp dụng np.clip trên logits thay vì post-softmax probabilities. Điều này **không ngăn underflow** trong log-sum-exp.
-- **Indexing lỗi:** `y_pred_clipped[samples, y_true]` – sai shape indexing; cần `y_pred_clipped[range(samples), y_true]`.
-- **One-hot encoding inconsistency:** Khi y_true là one-hot matrix, phép tính `np.sum(probs_clipped * y_true, axis=1)` trả về shape (N,) nhưng không xoá chiều nên keepdims có thể gây mismatch.
-- **API signature mismatch:** backward nhận y_pred nhưng cần dvalues từ loss output (probs); tạo confuse trong gradient backpropagation.
+- Không có `model.save()` → train xong weights biến mất khi process thoát.
+- Không có `model.load()` → không thể nạp mô hình đã save.
+- Không có `Model.create_from_config()` → không thể định nghĩa architecture qua JSON/dict.
+- Mỗi lần chạy script → retrain từ đầu (낭비thời gian compute).
 
 **Hậu quả:**
-- **Numerical instability:** NaN/Inf trong training do log(0) hoặc underflow.
-- **Incorrect gradient:** dinputs được tính từ logits thay vì probs → sai **backpropagation**.
-- **Non-convergence:** Loss không giảm hoặc oscillate không kiểm soát.
+- **No reproducibility:** Không thể share trained models.
+- **No deployment:** Mô hình không thể lưu cho production inference.
+- **Loss of trained parameters:** Tất cả learning bị mất sau thoát.
+- **No checkpointing:** Không lưu best model during validation.
 
-**Thuật ngữ chuyên ngành:** 
-- **Softmax:** Hàm activation chuẩn hóa output thành probability distribution (sum = 1).
-- **Categorical Cross-Entropy (CCE):** Loss function cho multi-class classification: L = -Σ y_true * log(y_pred).
-- **Numerical stability:** Kỹ thuật tránh overflow/underflow bằng log-sum-exp trick.
-- **Gradient flow:** Sự lan truyền đạo hàm từ output → input qua mạng (backprop).
+**Thuật ngữ chuyên ngành:**
+- **Serialization:** Chuyển đổi object (weights, architecture) thành bytes/file format.
+- **Deserialization:** Reconstruct object từ bytes/file.
+- **Checkpoint:** Lưu state của model tại iteration/epoch nhất định (để recover best model).
+- **Model architecture:** Danh sách layers, kích thước, activation functions.
+- **Model weights (parameters):** Giá trị thực tế của w, b sau training.
 
-### 1.2 Model.backward & Loss API Inconsistency
-**Vấn đề:**
-- Loss không có base class hoặc protocol để enforce uniform interface.
-- MSE.backward(y_pred, y_true) vs Softmax+CCE.backward(dvalues, y_true) → signature khác nhau.
-- Model.backward gọi `loss.backward(y_pred, y_true)` nhưng một số loss subclass kỳ vọng dvalues (post-activation gradients).
-
-**Thuật ngữ:**
-- **Loss interface:** Hợp đồng (contract) giữa Model và Loss class.
-- **Backpropagation:** Thuật toán tính gradient bằng cách đi ngược qua graph.
-
----
-
-## 2. State Management & Accumulator Bugs (Critical — Priority 1)
-
-### 2.1 Accuracy Stateful Accumulation
-**Vấn đề:**
-- Accuracy.__init__ không khởi tạo accumulated_sum/accumulated_count → **AttributeError** nếu gọi calculate() trước new_pass().
-- Accuracy_CategoricalClassification không kế thừa Accuracy → không dùng được accumulated mechanics.
-- calculate() trả về boolean array thay vì scalar → không thể mean() trực tiếp.
-
-**Hậu quả:**
-- **Epoch-wise accuracy** không được tích lũy đúng → metrics sai lệch.
-- **Validation loop** có thể fail hoặc báo cáo metrics không chính xác.
-
-**Thuật ngữ:**
-- **Accumulation:** Tích lũy các giá trị qua nhiều mini-batches để tính metric epoch-level.
-- **State initialization:** Khởi tạo state ban đầu để tránh UB (Undefined Behavior).
-
-### 2.2 Optimizer State Inconsistency
-**Vấn đề:**
-- Biến learning rate gọi khác nhau: Optimizer_SGD dùng `learning_rate`, Optimizer_SGD_Decay dùng `current_lr`.
-- pre_update_params() nhiều chỗ chỉ `self.x = self.x` → vô nghĩa, thiếu decay calculation.
-- Adam bias-correction dùng (self.iterations + 1) nhưng iterations được increment ở post_update → timing sai.
-
-**Thuật ngữ:**
-- **Learning rate decay:** Giảm learning rate theo epoch/iteration để converge tốt hơn.
-- **Bias correction:** Hiệu chỉnh exponential moving average khi iterations nhỏ (trong Adam).
-- **First-order moment & second-order moment:** Ước lượng trung bình gradient (m) và bình phương gradient (v) trong Adam.
-
----
-
-## 3. Layer Initialization & Weight Distribution (High — Priority 2)
-
-### 3.1 Weight Initialization
-**Vấn đề:**
-- `np.random.randn(n_inputs, n_neurons)` sử dụng chuẩn N(0,1) → **không mang tính chất activation function**.
-- Không có tùy chọn Xavier (Glorot) hoặc He initialization → **vanishing/exploding gradient** khi network sâu.
-- Không có seed control → **non-reproducible** training runs.
-
-**Thuật ngữ:**
-- **Xavier/Glorot init:** Khởi tạo weights ∼ U[-√(6/(n_in+n_out)), √(6/(n_in+n_out))] để maintain variance qua layers.
-- **He init:** Khởi tạo weights ∼ N(0, √(2/n_in)) cho ReLU (vì ReLU kills ~50% gradient).
-- **Vanishing gradient:** Gradient → 0 khi backprop qua layers sâu (activation như sigmoid/tanh).
-- **Exploding gradient:** Gradient → ∞ (NaN) khi weights quá lớn.
-
----
-
-## 4. Regularization & Gradient Penalty (Medium — Priority 2)
-
-### 4.1 L1/L2 Regularization Implementation
-**Vấn đề hiện tại (đã được cải thiện):**
-- DenseLayer.backward đã thêm gradient regularization.
-- Nhưng Model.train/evaluate chưa report regularization loss chi tiết.
-
-**Thuật ngữ:**
-- **L1 regularization (Lasso):** Loss += λ₁ * Σ|w| → tạo sparsity (weights → 0).
-- **L2 regularization (Ridge):** Loss += λ₂ * Σw² → shrink weights nhưng không sparse.
-- **Regularization loss:** Penalty term để tránh overfitting bằng cách penalize large weights.
-- **Weight decay:** Trong SGD, bằng cách trừ learning_rate * λ * w trong weight update.
-
----
-
-## 5. Model Persistence — Thiếu Save/Load/Create (Critical — Priority 1)
-
-### 5.1 Không có Model Serialization/Deserialization
-**Vấn đề:**
-- **Không có save():** Mô hình đã train không thể lưu → mất thời gian train nếu thoát chương trình.
-- **Không có load():** Không thể nạp mô hình đã save → không reproducible.
-- **Không có model.create():** Không có method để tạo model từ config (architecture definition).
-- **Stateless weights:** Sau train, nếu process dies, tất cả weights đều mất.
-
-**Hậu quả:**
-- **No checkpointing:** Không lưu best model during training.
-- **Loss of trained parameters:** Mỗi lần chạy code phải retrain từ đầu.
-- **Deployment impossible:** Không thể load mô hình cho production inference.
-
-**Thuật ngữ:**
-- **Serialization/Deserialization:** Lưu trữ object (weights, architecture) thành file và ngược lại.
-- **Checkpoint:** Lưu state của model tại các điểm nhất định (ví dụ best validation loss).
-- **Model architecture:** Danh sách layers, sizes, activations.
-- **Model weights/parameters:** Giá trị thực tế của w, b sau training.
-
-### 5.2 Recommended Save/Load Interface
-```python
-# Save model
-model.save(filepath='model.pkl')  # or .npz, .h5, etc.
-
-# Load model
-loaded_model = Model.load(filepath='model.pkl')
-
-# Inference
-predictions = loaded_model.predict(X_test)
-```
-
----
-
-## 6. Training Loop & Validation Protocol (Medium — Priority 2)
-
-### 6.1 Mini-batch & Data Shuffling
-**Vấn đề:**
-- Model.train() dùng full-batch gradient descent (toàn bộ dataset một lần).
-- Không có shuffling → ordering bias, convergence chậm.
-- Không có batch_size parameter → không flexible cho large datasets.
-
-**Thuật ngữ:**
-- **Batch size:** Số samples dùng trong một forward-backward pass.
-- **Epoch:** Một lần đi qua toàn bộ training set.
-- **Shuffling:** Random reorder samples mỗi epoch để tránh ordering bias.
-- **Mini-batch GD:** Update weights sau mỗi batch (trade-off giữa noise & efficiency).
-
-### 6.2 Validation & Early Stopping
-**Vấn đề:**
-- Model.evaluate() chỉ report loss & accuracy, không có early stopping.
-- Không tracking best model during training.
-- Không splitting train/val/test sets.
-
-**Thuật ngữ:**
-- **Overfitting:** Model học noise → performance tốt trên train nhưng tệ trên test.
-- **Early stopping:** Dừng training khi validation loss không giảm n epochs liên tiếp.
-- **Generalization gap:** Difference giữa train loss và validation loss.
-
----
-
-## 7. Activation Functions & Layer API (Medium — Priority 2)
-
-### 7.1 Activation Consistency
-**Vấn đề:**
-- Activation_ReLU.forward() không gán self.output → inconsistent với Activation_Linear.
-- Model.forward() dùng try/except TypeError để gọi forward(inputs, training) → fragile.
-
-**Thuật ngữ:**
-- **Activation function:** Non-linear transformation f(x) = max(0, x) (ReLU), etc.
-- **Forward pass:** Compute output từ input qua layers (inference).
-- **Backward pass:** Compute gradient w.r.t. weights từ loss (training).
-
----
-
-## 8. Numerical Stability & Gradient Clipping (Medium — Priority 3)
-
-### 8.1 Gradient Explosion
-**Vấn đề:**
-- Không có gradient clipping → **exploding gradient** khi ||∇|| quá lớn.
-- Epsilon trong Adam/RMSProp là 1e-7 → có thể quá nhỏ trên devices khác nhau.
-
-**Thuật ngữ:**
-- **Gradient clipping:** Giới hạn ||∇|| ≤ max_norm để tránh exploding.
-- **Epsilon (ε):** Số rất nhỏ để avoid division by zero.
-
----
-
-## 9. Testing & Documentation (Low — Priority 3)
-
-### 9.1 Unit Tests
-**Vấn đề:**
-- Không có tests: shape validation, gradient checking, convergence on toy problems.
-- Không có docstrings chi tiết → khó dùng API.
-
-**Thuật ngữ:**
-- **Gradient checking:** Số mở numerically (finite differences) để verify analytic gradient.
-- **Shape inference:** Validate input/output shapes qua layers.
-- **Toy problems:** Simple datasets (AND, XOR, Iris) để test convergence.
-
----
-
-## 10. Optimization Algorithms — Inconsistencies (Medium — Priority 2)
-
-### 10.1 Optimizer State Management
-**Vấn đề:**
-- SGD_Momentum tính velocity sai (vi += lr * dw thay vì vi = beta*vi - lr*dw standard).
-- AdaGrad cache không reset → learning rate luôn giảm (không phù hợp lâu dài).
-- RMSProp parameter p (retention ratio) có thể confuse với Momentum's beta.
-
-**Thuật ngữ:**
-- **Momentum:** Accumulate past gradients để tăng tốc hội tụ, avoid local minima.
-- **Adaptive learning rate:** Learning rate khác nhau per-parameter (AdaGrad, RMSProp, Adam).
-- **Exponential moving average:** Weighted average với recent gradients được weight cao hơn.
-- **Bias-correction term:** Trong Adam, điều chỉnh vì biased estimator khi iterations nhỏ.
-
----
-
-## Hành động ưu tiên (Prioritized Action Items)
-
-### Tiers:
-
-**TIER 1 (Critical — Phải sửa ngay):**
-1. ✅ Sửa Softmax+CCE forward/backward signature
-2. ✅ Chuẩn hóa Loss API (backward signature)
-3. ✅ Fix Accuracy initialization & inheritance
-4. ⏳ Implement Model.save() / Model.load() (pickle/numpy serialization)
-
-**TIER 2 (High — Nên sửa sớm):**
-5. ⏳ Weight initialization (Xavier/He + seed)
-6. ⏳ Chuẩn hóa Optimizer state variables (use current_lr everywhere)
-7. ⏳ Fix Adam bias-correction timing
-8. ⏳ Implement batch_size + data shuffling trong train()
-
-**TIER 3 (Medium — Tối ưu hóa):**
-9. ⏳ Gradient clipping implementation
-10. ⏳ Early stopping + checkpoint best model
-11. ⏳ Learning rate schedulers (exponential decay, step decay)
-12. ⏳ Implement unit tests (gradient check, shape validation)
-
-**TIER 4 (Nice-to-have — Tương lai):**
-13. ⏳ Dropout layer, BatchNormalization
-14. ⏳ Callbacks system
-15. ⏳ TensorBoard integration
-
----
-
-## Ví dụ Code: Save/Load Model
+**Recommended Implementation:**
 
 ```python
 import pickle
 import json
+import numpy as np
 
-# Save model
-def save(self, filepath: str):
-    """Serialize model architecture & weights."""
-    model_state = {
-        'layers': [
-            {
+class Model:
+    # ... existing code ...
+    
+    def save(self, filepath: str, include_optimizer: bool = False) -> None:
+        """Serialize trained model weights & architecture.
+        
+        Parameters
+        ----------
+        filepath : str
+            Output path (*.pkl for pickle, *.npz for numpy format)
+        include_optimizer : bool
+            Whether to save optimizer state (untuk resume training)
+            
+        Notes
+        -----
+        Saves only weights/biases, not activation functions (can be recreated).
+        Use .pkl for full serialization or .npz for lightweight weight-only save.
+        """
+        model_data = {
+            'layers_info': [],
+            'optimizer_config': None
+        }
+        
+        # Save layer weights & architecture
+        for layer in self.layers:
+            layer_info = {
                 'type': layer.__class__.__name__,
-                'weights': layer.weights if hasattr(layer, 'weights') else None,
-                'biases': layer.biases if hasattr(layer, 'biases') else None,
-                'config': {...}  # activation, regularizer config
-            } for layer in self.layers
-        ],
-        'loss': self.loss.__class__.__name__,
-        'optimizer': {...}
-    }
-    with open(filepath, 'wb') as f:
-        pickle.dump(model_state, f)
+                'weights': layer.weights.copy() if hasattr(layer, 'weights') else None,
+                'biases': layer.biases.copy() if hasattr(layer, 'biases') else None,
+            }
+            
+            # Save regularizer config
+            if hasattr(layer, 'weight_regularizer') and layer.weight_regularizer:
+                layer_info['weight_regularizer'] = {
+                    'type': layer.weight_regularizer.__class__.__name__,
+                    'strength': getattr(layer.weight_regularizer, 'strength', None)
+                }
+            
+            model_data['layers_info'].append(layer_info)
+        
+        # Optional: save optimizer state (untuk warm-start training)
+        if include_optimizer and hasattr(self, 'optimizer'):
+            model_data['optimizer_config'] = {
+                'type': self.optimizer.__class__.__name__,
+                'iterations': getattr(self.optimizer, 'iterations', 0),
+                'learning_rate': getattr(self.optimizer, 'learning_rate', None),
+                'current_lr': getattr(self.optimizer, 'current_lr', None),
+            }
+        
+        # Serialize thành file
+        with open(filepath, 'wb') as f:
+            pickle.dump(model_data, f)
+        
+        print(f"Model saved to {filepath}")
+    
+    @staticmethod
+    def load(filepath: str) -> 'Model':
+        """Deserialize trained model từ file.
+        
+        Parameters
+        ----------
+        filepath : str
+            Path to saved model (*.pkl)
+            
+        Returns
+        -------
+        Model
+            Loaded model với weights & biases restored.
+            
+        Notes
+        -----
+        Activation functions & loss không được save; cần set() lại sau load.
+        Ví dụ:
+            model = Model.load('model.pkl')
+            model.set(loss=Activation_Softmax_Loss_CategoricalCrossEntropy(),
+                     optimizer=Optimizer_Adam())
+        """
+        with open(filepath, 'rb') as f:
+            model_data = pickle.load(f)
+        
+        # Reconstruct model
+        model = Model()
+        
+        # Tạo layers mới & restore weights
+        for layer_info in model_data['layers_info']:
+            layer_type = layer_info['type']
+            
+            if layer_type == 'DenseLayer':
+                # Suy ra n_inputs, n_neurons từ weights shape
+                n_inputs, n_neurons = layer_info['weights'].shape
+                layer = DenseLayer(n_neurons, n_inputs)
+                layer.weights = layer_info['weights'].copy()
+                layer.biases = layer_info['biases'].copy()
+                
+                # Restore regularizer if saved
+                if 'weight_regularizer' in layer_info and layer_info['weight_regularizer']:
+                    reg_type = layer_info['weight_regularizer']['type']
+                    strength = layer_info['weight_regularizer']['strength']
+                    if reg_type == 'Regularization_L1':
+                        layer.weight_regularizer = Regularization_L1(strength)
+                    elif reg_type == 'Regularization_L2':
+                        layer.weight_regularizer = Regularization_L2(strength)
+                
+            elif layer_type == 'Activation_ReLU':
+                layer = Activation_ReLU()
+            elif layer_type == 'Activation_Linear':
+                layer = Activation_Linear()
+            # ... thêm các activation khác nếu cần ...
+            else:
+                raise ValueError(f"Unknown layer type: {layer_type}")
+            
+            model.add(layer)
+        
+        model.finalize()
+        print(f"Model loaded from {filepath}")
+        return model
+    
+    def save_weights_only(self, filepath: str) -> None:
+        """Lưu chỉ weights (nhẹ hơn) trong format NumPy .npz.
+        
+        Notes
+        -----
+        Dùng khi chỉ cần weights, không cần architecture metadata.
+        """
+        weights_dict = {}
+        for i, layer in enumerate(self.trainable_layers):
+            weights_dict[f'layer_{i}_weights'] = layer.weights
+            weights_dict[f'layer_{i}_biases'] = layer.biases
+        
+        np.savez(filepath, **weights_dict)
+        print(f"Weights saved to {filepath}")
+    
+    @staticmethod
+    def load_weights_only(filepath: str, model: 'Model') -> None:
+        """Restore weights từ .npz file vào existing model.
+        
+        Parameters
+        ----------
+        filepath : str
+            Path to .npz file
+        model : Model
+            Model object để inject weights vào
+        """
+        data = np.load(filepath)
+        for i, layer in enumerate(model.trainable_layers):
+            layer.weights = data[f'layer_{i}_weights']
+            layer.biases = data[f'layer_{i}_biases']
+        print(f"Weights loaded from {filepath}")
 
-# Load model
-@staticmethod
-def load(filepath: str):
-    """Deserialize model."""
-    with open(filepath, 'rb') as f:
-        model_state = pickle.load(f)
-    # Reconstruct layers, loss, optimizer từ state
-    ...
+
+# Sử dụng ví dụ:
+# model.save('trained_model.pkl')
+# loaded = Model.load('trained_model.pkl')
+# loaded.set(loss=loss_fn, optimizer=optimizer)
+# predictions = loaded.predict(X_test)
 ```
 
 ---
 
-## Từ ngữ chuyên ngành tóm tắt
+### 2. Softmax + Categorical Cross-Entropy — Numerical Bugs (Ưu tiên 1.2)
 
-| Khái niệm | Nghĩa | Liên quan |
-|-----------|-------|----------|
-| **Forward pass** | Tính output từ input qua layers | Inference, training |
-| **Backward pass** | Tính gradient từ loss qua layers (backprop) | Training, optimization |
-| **Gradient flow** | Sự lan truyền đạo hàm qua mạng | Backpropagation |
-| **Numerical stability** | Tránh NaN/Inf trong tính toán | Clipping, normalization |
-| **Overfitting** | Model fit noise → generalize tệ | Regularization, early stopping |
-| **Gradient checking** | Verify analytic gradient với finite-difference | Testing |
-| **Regularization** | Penalize large weights → tránh overfitting | L1, L2 |
-| **Serialization** | Lưu object thành file | Save/Load |
-| **Checkpoint** | Lưu best model during training | Validation |
-| **Batch size** | Số samples/update | Mini-batch GD |
+**Vấn đề:**
+- ✅ **Đã sửa ở trên:** Clip áp lên probabilities, indexing đúng, one-hot handling.
+- **Còn lại:** backward signature đúng `backward(self, y_pred, y_true)` & sử dụng `self.output` (stored probs).
+- **Impact:** Gradient flow chính xác → training hội tụ.
+
+**Thuật ngữ:**
+- **Softmax:** σ(z_i) = e^(z_i) / Σ_j e^(z_j) → normalizationthành probability distribution.
+- **Categorical Cross-Entropy:** L = -Σ y_true * log(y_pred) → measure divergence hai distributions.
+- **Log-sum-exp trick:** Tính exp(z - max(z)) để tránh overflow.
+- **Gradient:** ∂L/∂z = softmax(z) - y_true (closed form cho Softmax+CCE).
+
+---
+
+### 3. Accuracy State Initialization & Inheritance (Ưu tiên 1.3)
+
+**Vấn đề:**
+- ✅ **Đã sửa:** Accuracy_CategoricalClassification kế thừa Accuracy.
+- **Nhưng:** Cần đảm bảo `new_pass()` được gọi trước mỗi epoch.
+- **Risk:** Silent bug nếu không gọi new_pass() → accumulated metrics sai.
+
+**Thuật ngữ:**
+- **Accumulation:** Tích lũy metric qua multiple mini-batches để tính epoch-level accuracy.
+- **State machine:** new_pass() → [batch calculate] × N → calculate_accumulated() → reset.
+
+---
+
+## PHẦN 2: LỖI HIGH (TIER 2) — NÊN SỬA SỚM
+
+### 4. Weight Initialization — No Xavier/He (Ưu tiên 2.1)
+
+**Vấn đề:**
+```python
+# Current: Generic N(0,1) initialization
+self.weights = np.random.randn(n_inputs, n_neurons)
+
+# Problem: Variance không phù hợp với activation function
+# → Vanishing gradient (sigmoid/tanh) hoặc Exploding gradient (ReLU)
+```
+
+**Cải thiện:**
+```python
+def __init__(self, n_neurons: int, n_inputs: int, weight_init='he'):
+    if weight_init == 'he':  # Cho ReLU
+        self.weights = np.random.randn(n_inputs, n_neurons) * np.sqrt(2.0 / n_inputs)
+    elif weight_init == 'xavier':  # Cho sigmoid/tanh (cân bằng)
+        limit = np.sqrt(6.0 / (n_inputs + n_neurons))
+        self.weights = np.random.uniform(-limit, limit, (n_inputs, n_neurons))
+    else:
+        self.weights = np.random.randn(n_inputs, n_neurons)
+    self.biases = np.zeros((1, n_neurons))
+```
+
+**Thuật ngữ:**
+- **He initialization:** w ~ N(0, √(2/n_in)) → giữ variance gradient = 1 qua ReLU layers.
+- **Xavier/Glorot:** w ~ U[-√(6/(n_in+n_out)), √(6/(n_in+n_out))] → cân bằng forward/backward.
+- **Vanishing gradient:** ∂L/∂w → 0 khi sâu → training chậm.
+- **Exploding gradient:** ∂L/∂w → ∞ (NaN) → training không ổn định.
+
+---
+
+### 5. Optimizer State Inconsistency (Ưu tiên 2.2)
+
+**Vấn đề:**
+```python
+# Tên biến khác nhau giữa optimizer
+Optimizer_SGD: learning_rate
+Optimizer_SGD_Decay: current_lr, initial_lr
+Optimizer_Adam: current_lr
+
+# pre_update_params() nhiều chỗ vô nghĩa
+def pre_update_params(self):
+    self.learning_rate = self.learning_rate  # ??? vô nghĩa
+```
+
+**Cải thiện:** Thống nhất `current_lr` & decay calculation trong pre_update.
+
+**Thuật ngữ:**
+- **Learning rate decay:** lr(t) = lr₀ / (1 + decay_rate * t) → giảm lr theo epoch.
+- **Exponential decay:** lr(t) = lr₀ * γ^t (ví dụ γ=0.95).
+- **Step decay:** lr(t) = lr₀ * α^⌊t/step⌋ → giảm theo từng bước cố định.
+
+---
+
+### 6. Mini-batch & Data Shuffling (Ưu tiên 2.3)
+
+**Vấn đề:**
+```python
+# Current: Full-batch GD
+def train(self, x, y, epochs=10000, ...):
+    for epoch in range(epochs):
+        y_pred = self.forward(x)  # ← toàn bộ dataset 1 lần
+```
+
+**Cải thiện:**
+```python
+def train(self, x, y, epochs=10000, batch_size=32, shuffle=True, ...):
+    n_samples = len(x)
+    for epoch in range(epochs):
+        indices = np.arange(n_samples)
+        if shuffle:
+            np.random.shuffle(indices)  # Tránh ordering bias
+        
+        epoch_loss, epoch_acc = 0, 0
+        for i in range(0, n_samples, batch_size):
+            batch_indices = indices[i:i+batch_size]
+            x_batch, y_batch = x[batch_indices], y[batch_indices]
+            
+            y_pred = self.forward(x_batch)
+            loss = self.loss.calculate(y_pred, y_batch)
+            # ... backward, update ...
+            epoch_loss += loss * len(batch_indices)
+        
+        epoch_loss /= n_samples
+        # print & validate
+```
+
+**Thuật ngữ:**
+- **Batch size:** Số samples per update (trade-off: noise ↔ efficiency).
+- **Mini-batch GD:** Update sau mỗi batch (trade-off SGD & full-batch).
+- **Shuffling:** Random reorder samples → tránh ordering bias.
+- **Epoch:** Một lần đi qua toàn bộ training set.
+
+---
+
+## PHẦN 3: LỖI MEDIUM (TIER 3) — NÂNG CAO CHẤT LƯỢNG
+
+### 7. Gradient Clipping (Ưu tiên 3.1)
+
+**Vấn đề:** Khi ||∇|| quá lớn → exploding gradient → NaN loss.
+
+**Cải thiện:**
+```python
+def update_params(self):
+    self.optimizer.pre_update_params()
+    
+    for layer in self.trainable_layers:
+        # Gradient clipping trước update
+        if hasattr(layer, 'dweights'):
+            layer.dweights = np.clip(layer.dweights, -1, 1)  # L∞ norm
+        self.optimizer.update_params(layer)
+    
+    self.optimizer.post_update_params()
+```
+
+**Thuật ngữ:**
+- **Gradient clipping:** ||∇|| > max_norm → scale to max_norm.
+- **L2 norm clipping:** ||∇||₂ → ||∇||₂ / max(1, ||∇||₂/max_norm).
+
+---
+
+### 8. Early Stopping & Validation Protocol (Ưu tiên 3.2)
+
+**Vấn đề:** Không biết khi nào dừng training → overfitting lâu.
+
+**Cải thiện:**
+```python
+def train_with_validation(self, x_train, y_train, x_val, y_val,
+                         epochs=10000, patience=20, ...):
+    best_val_loss = float('inf')
+    patience_counter = 0
+    
+    for epoch in range(epochs):
+        # training...
+        
+        # validation
+        val_loss, val_acc = self.evaluate(x_val, y_val)
+        
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            patience_counter = 0
+            self.save('best_model.pkl')  # checkpoint
+        else:
+            patience_counter += 1
+        
+        if patience_counter >= patience:
+            print(f"Early stopping at epoch {epoch}")
+            break
+    
+    # Load best model
+    best_model = Model.load('best_model.pkl')
+    return best_model
+```
+
+**Thuật ngữ:**
+- **Overfitting:** Train loss ↓ nhưng val loss ↑ → generalization yếu.
+- **Early stopping:** Dừng khi val metric không improve n epochs.
+- **Checkpoint:** Lưu best model during training.
+- **Generalization gap:** val_loss - train_loss → đo overfitting.
+
+---
+
+### 9. Learning Rate Schedulers (Ưu tiên 3.3)
+
+**Ví dụ: Exponential Decay**
+```python
+class LRScheduler_Exponential:
+    def __init__(self, initial_lr: float, decay_rate: float = 0.95):
+        self.initial_lr = initial_lr
+        self.decay_rate = decay_rate
+    
+    def get_lr(self, epoch: int) -> float:
+        return self.initial_lr * (self.decay_rate ** epoch)
+```
+
+**Trong train loop:**
+```python
+scheduler = LRScheduler_Exponential(0.01, 0.95)
+for epoch in range(epochs):
+    self.optimizer.learning_rate = scheduler.get_lr(epoch)
+    # ... training ...
+```
+
+**Thuật ngữ:**
+- **Warm-up:** Tăng lr từ 0 → lr₀ dalam epoch đầu.
+- **Cosine annealing:** lr(t) = lr₀ * (1 + cos(πt/T)) / 2 → smooth decay.
+
+---
+
+## PHẦN 4: LỖI LOW (TIER 4) — NICE-TO-HAVE
+
+### 10. Batch Normalization (Ưu tiên 4.1)
+
+```python
+class BatchNormalization:
+    """Normalize activations qua batch → faster training, higher LR."""
+    def __init__(self, n_inputs: int, momentum: float = 0.9):
+        self.momentum = momentum
+        self.gamma = np.ones((1, n_inputs))  # scale
+        self.beta = np.zeros((1, n_inputs))   # shift
+        self.moving_mean = np.zeros((1, n_inputs))
+        self.moving_var = np.ones((1, n_inputs))
+    
+    def forward(self, x: np.ndarray, training: bool = True) -> np.ndarray:
+        if training:
+            batch_mean = np.mean(x, axis=0, keepdims=True)
+            batch_var = np.var(x, axis=0, keepdims=True)
+            
+            # Update moving averages
+            self.moving_mean = (self.momentum * self.moving_mean +
+                               (1 - self.momentum) * batch_mean)
+            self.moving_var = (self.momentum * self.moving_var +
+                              (1 - self.momentum) * batch_var)
+            
+            # Normalize
+            x_norm = (x - batch_mean) / np.sqrt(batch_var + 1e-8)
+        else:
+            # Inference: dùng moving averages
+            x_norm = (x - self.moving_mean) / np.sqrt(self.moving_var + 1e-8)
+        
+        return self.gamma * x_norm + self.beta
+```
+
+**Thuật ngữ:**
+- **Internal covariate shift:** Phân phối input thay đổi qua training → chậm.
+- **Batch normalization:** Chuẩn hóa mỗi layer activation → ổn định, nhanh.
+- **Exponential moving average:** Trung bình weighted recent values → estimate population stats.
+
+---
+
+### 11. Dropout (Ưu tiên 4.2)
+
+```python
+class Dropout:
+    """Randomly deactivate neurons → regularization."""
+    def __init__(self, drop_rate: float = 0.2):
+        self.drop_rate = drop_rate
+    
+    def forward(self, x: np.ndarray, training: bool = True) -> np.ndarray:
+        if training:
+            mask = np.random.binomial(1, 1 - self.drop_rate, x.shape)
+            return x * mask / (1 - self.drop_rate)  # scale
+        else:
+            return x  # no dropout in inference
+```
+
+**Thuật ngữ:**
+- **Dropout:** Randomly set activations → 0 (during training).
+- **Co-adaptation:** Units học depend on nhau → overfit; Dropout breaks it.
+
+---
+
+## BẢNG TÓMO THUẬT NGỮ CHUYÊN NGÀNH
+
+| Thuật ngữ | Định nghĩa | Liên quan |
+|-----------|-----------|----------|
+| **Feedforward** | Data → layer 1 → ... → output (no cycle) | Architecture |
+| **Backpropagation** | Tính ∂L/∂w bằng chain rule ngược | Training |
+| **Gradient flow** | Sự lan truyền ∂L qua layers | Backprop |
+| **Overfitting** | Train loss ↓, test loss ↑ | Regularization, early stopping |
+| **Underfitting** | Train & test loss cao | Increase model capacity |
+| **Batch size** | Số samples per update | Trade-off: noise vs efficiency |
+| **Epoch** | 1 lần đi qua toàn bộ dataset | Training loop |
+| **Learning rate (α)** | Bước size trong gradient descent | Optimization |
+| **Momentum** | Accumulate past gradients | Speed up convergence |
+| **Adaptive LR** | Learning rate khác nhau per-parameter | AdaGrad, RMSProp, Adam |
+| **Regularization** | Penalize large weights | L1, L2, Dropout |
+| **Numerical stability** | Tránh NaN/Inf trong computation | Clipping, normalization |
+| **Serialization** | Lưu object thành bytes/file | Save/Load |
+| **Checkpoint** | Lưu best model during training | Early stopping |
+| **Gradient clipping** | ||∇|| → max_norm | Prevent exploding gradient |
+| **Xavier/He init** | Weight initialization cho layer | Prevent vanishing/exploding grad |
+| **Batch normalization** | Normalize layer input qua batch | Faster training |
+| **Dropout** | Randomly deactivate neurons | Regularization |
+| **Early stopping** | Dừng khi val metric không improve | Prevent overfitting |
+| **Learning rate schedule** | Giảm LR theo epoch/iteration | Better convergence |
+
+---
+
+## PRIORITIZED ACTION PLAN
+
+### TIER 1 (Critical — NGAY):
+- ✅ Sửa Softmax+CCE (done)
+- ✅ Accuracy state (done)
+- **→ Implement Model.save()/load()/create()** ← TOP PRIORITY
+- Ensure backward signature consistency
+
+### TIER 2 (High — trong 2 tuần):
+- Add Xavier/He weight initialization + seed control
+- Standardize Optimizer state (current_lr everywhere)
+- Implement mini-batch training with shuffling
+- Add batch_size + validation split parameters
+
+### TIER 3 (Medium — trong 1 tháng):
+- Gradient clipping
+- Early stopping + checkpoint best model
+- Learning rate schedulers (exponential, step, cosine)
+- Unit tests (gradient check, shape validation, toy problem convergence)
+
+### TIER 4 (Nice-to-have — future):
+- Batch normalization layer
+- Dropout layer
+- Callbacks system
+- Logging/TensorBoard integration
+
+---
+
+## Kết luận
+
+Mã hiện tại là **foundation tốt** cho learning ANN, nhưng **PHẢI** thêm:
+1. **Save/Load/Create** (persistence) → sử dụng trained models
+2. **Numerical fixes** (Softmax+CCE) → correct gradients
+3. **Training robustness** (early stopping, validation) → avoid overfitting
+4. **Mini-batch support** (shuffling, batch_size) → real-world training
+
+Sau đó có thể explore advanced topics (BatchNorm, Dropout, attention mechanisms).
 
