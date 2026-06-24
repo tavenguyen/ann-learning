@@ -28,7 +28,7 @@ class Dense:
 
     def forward(self, inputs):
         # Lưu lại inputs để tính đạo hàm
-        self.inputs = inputs
+        self.inputs = inputsAAS
         self.output = np.dot(inputs, self.weights) + self.biases
 
     def backward(self, dvalues):
