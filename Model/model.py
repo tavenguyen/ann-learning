@@ -15,6 +15,48 @@ class DenseLayer:
         self.dinputs = np.dot(dvalues, self.weights.T)
         return self.dinputs
 
+class Regularization_L1:
+    def __init__(self, strength = 0.0):
+        self.strength = strength
+
+    def forward(self, parameters):
+        return self.strength * np.sum(np.abs(parameters))
+    
+    def backward(self, parameters):
+        gradient = np.ones_like(parameters)
+
+        gradient[parameters < 0] = -1
+        return self.strength * gradient
+    
+class Regularization_L2:
+    def __init__(self, strength = 0.0):
+        self.strength = strength
+
+    def forward(self, parameters):
+        return self.strength * np.sum(parameters ** 2)
+    
+    def backward(self, parameters):
+        return 2 * self.strength * parameters
+
+class Regularization_L1L2:
+    def __init__(self, l1_strength = 0.0, l2_strength = 0.0):
+        self.l1_strength = l1_strength
+        self.l2_strength = l2_strength
+
+    def forward(self, weights):
+        l1_loss = self.l1_strength * np.sum(np.abs(weights))
+        l2_loss = self.l2_strength * np.sum(weights ** 2)
+        return l1_loss + l2_loss
+    
+    def backward(self, weights):
+        l1_gradient = np.ones_like(weights)
+        l1_gradient[weights < 0] = -1
+
+        l1_gradient *= self.l1_strength
+
+        l2_gradient = 2 * self.l2_strength * weights
+        return l1_gradient + l2_gradient
+
 #----------------------------- Activation -------------------------------#
 class Activation_Linear:
     def forward(self, inputs):
