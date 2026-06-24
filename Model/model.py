@@ -1,54 +1,139 @@
 import numpy as np
 
 class DenseLayer:
-    def __init__(self, n_neurons, n_inputs):
+    """Fully-connected (dense) layer.
+
+    Parameters
+    ----------
+    n_neurons : int
+        Number of output neurons.
+    n_inputs : int
+        Number of input features.
+    weight_regularizer : optional
+        Instance of Regularization_L1, Regularization_L2, or Regularization_L1L2.
+        If provided, DenseLayer.backward will add regularization gradients
+        automatically and you can obtain the regularization loss via
+        weight_regularizer.forward(layer.weights).
+    bias_regularizer : optional
+        Same as weight_regularizer but applied to biases.
+
+    Usage notes
+    -----------
+    - To include regularization in the reported loss, add the return value of
+      layer.weight_regularizer.forward(layer.weights) (and bias) to the
+      supervised loss computed by the model.
+    - Regularizer.backward(parameters) should return the gradient contribution
+      for the given parameters; DenseLayer will add it to dweights/dbiases.
+    """
+    def __init__(self, n_neurons: int, n_inputs: int, weight_regularizer=None, bias_regularizer=None):
         self.weights = np.random.randn(n_inputs, n_neurons)
         self.biases = np.zeros((1, n_neurons))
+
+        # Regularizer objects (can be None)
+        self.weight_regularizer = weight_regularizer
+        self.bias_regularizer = bias_regularizer
     
-    def forward(self, inputs):
+    def forward(self, inputs: np.ndarray) -> None:
         self.inputs = inputs
         self.output = np.dot(inputs, self.weights) + self.biases
 
-    def backward(self, dvalues):
+    def backward(self, dvalues: np.ndarray) -> np.ndarray:
+        # Gradients from data loss
         self.dweights = np.dot(self.inputs.T, dvalues)
-        self.dbiases = np.sum(dvalues, axis = 0, keepdims=True)
+        self.dbiases = np.sum(dvalues, axis=0, keepdims=True)
         self.dinputs = np.dot(dvalues, self.weights.T)
+
+        # Add regularization gradients if regularizers provided
+        if self.weight_regularizer is not None:
+            self.dweights += self.weight_regularizer.backward(self.weights)
+
+        if self.bias_regularizer is not None:
+            self.dbiases += self.bias_regularizer.backward(self.biases)
+
         return self.dinputs
 
 class Regularization_L1:
-    def __init__(self, strength = 0.0):
+    """L1 regularization helper.
+
+    Parameters
+    ----------
+    strength : float
+        Regularization factor (lambda) for L1. Typical small values like 1e-4.
+
+    Methods
+    -------
+    forward(parameters) -> float
+        Returns L1 loss scalar for the given parameters: strength * sum(|parameters|).
+    backward(parameters) -> np.ndarray
+        Returns the gradient contribution to be added to parameter gradients:
+        strength * sign(parameters).
+    """
+    def __init__(self, strength: float = 0.0):
         self.strength = strength
 
-    def forward(self, parameters):
+    # calculate loss
+    def forward(self, parameters: np.ndarray) -> float:
         return self.strength * np.sum(np.abs(parameters))
     
-    def backward(self, parameters):
+    # calculate gradient
+    def backward(self, parameters: np.ndarray) -> np.ndarray:
         gradient = np.ones_like(parameters)
-
         gradient[parameters < 0] = -1
         return self.strength * gradient
     
 class Regularization_L2:
-    def __init__(self, strength = 0.0):
+    """L2 regularization helper.
+
+    Parameters
+    ----------
+    strength : float
+        Regularization factor for L2. Typical small values like 1e-4.
+
+    Methods
+    -------
+    forward(parameters) -> float
+        Returns L2 loss scalar: strength * sum(parameters ** 2).
+    backward(parameters) -> np.ndarray
+        Returns gradient contribution: 2 * strength * parameters.
+    """
+    def __init__(self, strength: float = 0.0):
         self.strength = strength
 
-    def forward(self, parameters):
+    # calculate loss
+    def forward(self, parameters: np.ndarray) -> float:
         return self.strength * np.sum(parameters ** 2)
     
-    def backward(self, parameters):
+    # calculate gradient
+    def backward(self, parameters: np.ndarray) -> np.ndarray:
         return 2 * self.strength * parameters
 
 class Regularization_L1L2:
-    def __init__(self, l1_strength = 0.0, l2_strength = 0.0):
+    """Combined L1+L2 regularization.
+
+    Parameters
+    ----------
+    l1_strength : float
+    l2_strength : float
+
+    Methods
+    -------
+    forward(parameters) -> float
+        Sum of L1 and L2 losses.
+    backward(parameters) -> np.ndarray
+        Sum of L1 and L2 gradient contributions.
+    """
+    def __init__(self, l1_strength: float = 0.0, l2_strength: float = 0.0):
         self.l1_strength = l1_strength
         self.l2_strength = l2_strength
 
-    def forward(self, weights):
+    # calculate loss
+    def forward(self, weights: np.ndarray) -> float:
         l1_loss = self.l1_strength * np.sum(np.abs(weights))
         l2_loss = self.l2_strength * np.sum(weights ** 2)
         return l1_loss + l2_loss
     
-    def backward(self, weights):
+    # calculate gradient
+    def backward(self, weights: np.ndarray) -> np.ndarray:
         l1_gradient = np.ones_like(weights)
         l1_gradient[weights < 0] = -1
 
