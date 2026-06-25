@@ -39,9 +39,11 @@ class Activation_ReLU:
         return self.output
 
     def backward(self, dvalues):
-        self.dinputs = dvalues.copy()
-        self.dinputs[self.inputs <= 0] = 0
-        return self.dinputs
+        self.dinputs = np.empty_like(dvalues)
+        for index, (single_output,single_dvalues) in enumerate(zip(self.output, dvalues)):
+            single_output = single_output.reshape(-1, 1)
+            jacobian_matrix = np.diagflat(single_output) - np.dot(single_output, single_output.T)
+            self.dinputs[index] = np.dot(jacobian_matrix, single_dvalues)
     
 class Activation_Softmax:
     def forward(self, inputs):
@@ -152,7 +154,7 @@ Zone = PointZone(n_points=800, n_classes=4)
 
 X_input = Zone.P      # Shape: (3200, 2) - Dữ liệu có 2 neuron ngõ vào
 Y_true = Zone.L       # Shape: (3200,)   - Nhãn (Class từ 0 đến 3)
-EPOCHS = 1000
+EPOCHS = 10001
 
 plt.scatter(X_input[:, 0], X_input[:, 1], s=5, c=Y_true, cmap='brg')
 plt.show()
