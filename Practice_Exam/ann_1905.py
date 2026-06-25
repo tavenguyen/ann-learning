@@ -2,18 +2,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class PointZone:
-    def __init__(self, n_points, n_classes, x_min = -4.0, x_max = 4.0):
-        dimensions = 2
-
-        self.P = np.zeros((n_points * n_classes, dimensions))
+    def __init__(self, n_points, n_classes):
+        self.P = np.zeros((n_points * n_classes, 2))
         self.L = np.zeros(n_points * n_classes, dtype='uint8')
+        
         for j in range(n_classes):
             np.random.seed(j)
-            t = np.linspace(x_min, x_max, n_points)
-            rand = 2.0 * np.random.rand(n_points)
+            offset_x = np.cos(j * np.pi / 2) * 3.0  
+            offset_y = np.sin(j * np.pi / 2) * 3.0
+            
+            x = np.random.randn(n_points) + offset_x
+            y = np.random.randn(n_points) + offset_y
+            
             ix = range(n_points * j, n_points * (j + 1))
-            if dimensions == 2:
-                self.P[ix] = np.c_[t, rand]
+            self.P[ix] = np.c_[x, y]
             self.L[ix] = j
 
 class Dense:
@@ -72,7 +74,13 @@ class Loss_CategoricalCrossEntropy(Loss):
         return negative_log_likelihood
         
     def backward(self, y_pred, y_true):
-        pass
+        samples = len(y_pred)
+        labels = len(y_pred[0])
+        if len(y_true.shape) == 1:
+            y_true = np.eye(labels)[y_true]
+        
+        self.dinputs = -y_true / y_pred
+        self.dinputs /= samples
             
 class Activation_Softmax_Loss_CategoricalCrossEntropy(Loss):
     def forward(self, y_pred, y_true):
