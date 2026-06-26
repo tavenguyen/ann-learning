@@ -593,3 +593,38 @@ class Model:
             accuracy = None
         
         return (data_loss + reg_loss), accuracy
+
+class DataLoader:
+    def __init__(self, X, y, batch_size=32, suffle=True, drop_last=False):
+        self.X = X
+        self.y = y
+        self.batch_size = batch_size
+        self.suffle = suffle
+        self.drop_last = drop_last
+
+        self.n_samples = len(X)
+    
+    def __iter__(self):
+        if self.shuffle:
+            indices = np.random.permutation(self.n_samples)
+        else:
+            indices = np.arange(self.n_samples)
+            
+        X_shuffled = self.X[indices]
+        y_shuffled = self.y[indices]
+
+        for start in range(0, self.n_samples, self.batch_size):
+            end = start + self.batch_size
+            if end > self.n_samples and self.drop_last:
+                return
+            
+            # cú pháp slicing sẽ tự dùng ở phần tử cuối cùng nếu end lớn hơn n_samples
+            X_batches = self.X_shuffled[start:end]
+            Y_batches = self.y_shuffled[start:end]
+            yield X_batches, Y_batches
+
+    def __len__(self):
+        if self.drop_last: 
+            return (self.n_samples // self.batch_size)
+        
+        return int(np.ceil(self.n_samples / self.batch_size))
