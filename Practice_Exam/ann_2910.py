@@ -10,7 +10,7 @@ class SpiralData:
         for j in range(n_classes):
             ix = range(n_points * j , n_points * (j + 1))
             r = np.linspace(0, 1, n_points)
-            theta = r * 2 * np.pi + 2 * j * np.pi * 1/3
+            theta = np.linspace(j * 4, (j + 1) * 4, n_points) + np.random.randn(n_points) * 0.6
         
             self.P[ix] = np.c_[r * np.sin(theta), r * np.cos(theta)]
             self.L[ix] = j
@@ -213,7 +213,7 @@ for epoch in range(10001):
     optimizer.update_params(layerOutput)
     optimizer.post_update_params()
 
-TestZone = SpiralData(n_points=300, n_classes=3)
+TestZone = SpiralData(n_points=50, n_classes=3)
 layer1.forward(TestZone.P)
 activation1.forward(layer1.output)
 dropout_layer1.forward(activation1.output)
