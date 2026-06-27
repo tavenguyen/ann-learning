@@ -209,6 +209,12 @@ class Activation_Linear:
             "className": "ActivationLinear"
         }
     
+    def getParameters(self):
+        return None
+    
+    def setParameters(self, paramemters):
+        pass
+    
 class Activation_ReLU:
     def forward(self, inputs):
         self.inputs = inputs
@@ -224,6 +230,12 @@ class Activation_ReLU:
         return {
             "className": "ActivationReLU"
         }
+    
+    def getParameters(self):
+        return None
+    
+    def setParameters(self, paramemters):
+        pass
 
 #----------------------------- Loss -------------------------------#
 class Loss:
@@ -232,7 +244,7 @@ class Loss:
         self.output = np.mean(sample_losses)
         return self.output
     
-class Activation_Softmax_Loss_CategoricalCrossEntropy:
+class Activation_Softmax_Loss_CategoricalCrossEntropy(Loss):
     def forward(self, y_pred, y_true):
         # Softmax activation
         exp_values = np.exp(y_pred - np.max(y_pred, axis = 1, keepdims = True))
@@ -267,6 +279,17 @@ class Activation_Softmax_Loss_CategoricalCrossEntropy:
         probs[range(samples), y_true] -= 1
         self.dinputs = probs / samples
         return self.dinputs
+    
+    def getConfig(self):
+        return {
+            "className": "ActivationSoftmaxLossCategoricalCrossEntropy"
+        }
+    
+    def getParameters(self):
+        return None
+    
+    def setParameters(self, paramemters):
+        pass
 
 class Loss_MeanSquaredError(Loss):
     def forward(self, y_pred, y_true):
@@ -281,6 +304,17 @@ class Loss_MeanSquaredError(Loss):
 
         self.dinputs = (2 * (y_pred - y_true)) / (outputs * samples)
         return self.dinputs
+    
+    def getConfig(self):
+        return {
+            "className": "LossMeanSquaredError"
+        }
+    
+    def getParameters(self):
+        return None
+    
+    def setParameters(self, paramemters):
+        pass
 
 #----------------------------- Accuracy -------------------------------#
 class Accuracy:
