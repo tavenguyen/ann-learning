@@ -360,6 +360,18 @@ class Accuracy_RegressionTolerance(Accuracy):
             )
 
         return (np.abs(predictions - y) <= self.tolerance)
+    
+    def getConfig(self):
+        return {
+            "className": "AccuracyRegressionTolerance",
+            "tolerance": self.tolerance
+        }
+
+    def getParameters(self):
+        return None
+    
+    def setParameters(self, paramemters):
+        pass
 
 class Accuracy_CategoricalClassification(Accuracy):
     # cột: class, hàng: số mẫu
@@ -393,6 +405,18 @@ class Accuracy_CategoricalClassification(Accuracy):
             predicted_classes
             == true_classes
         )
+    
+    def getConfig(self):
+        return {
+            "className": "AccuracyCategoricalClassification",
+            "tolerance": self.tolerance
+        }
+
+    def getParameters(self):
+        return None
+    
+    def setParameters(self, paramemters):
+        pass
 
 #----------------------------- Optimizer-------------------------------#
 class Optimizer_SGD:
@@ -409,6 +433,18 @@ class Optimizer_SGD:
 
     def post_update_params(self):
         self.iterations += 1
+
+    def getConfig(self):
+        return {
+            "className": "OptimizerSGD",
+            "learningRate": self.learning_rate
+        }
+
+    def getParameters(self):
+        return None
+    
+    def setParameters(self, paramemters):
+        pass
 
 class Optimizer_SGD_Decay:
     def __init__(self, learning_rate = 0.01, decay_rate = 1e-3):
@@ -427,6 +463,19 @@ class Optimizer_SGD_Decay:
     def post_update_params(self):
         self.iterations += 1
 
+    def getConfig(self):
+        return {
+            "className": "OptimizerDecay",
+            "learningRate": self.initial_lr,
+            "decayRate": self.decay_rate
+        }
+
+    def getParameters(self):
+        return None
+    
+    def setParameters(self, paramemters):
+        pass
+
 class Optimizer_SGD_Momentum:
     def __init__(self, beta = 0.9, learning_rate = 0.01):
         self.learning_rate = learning_rate
@@ -434,7 +483,7 @@ class Optimizer_SGD_Momentum:
         self.iterations = 0
 
     def pre_update_params(self):
-        self.learning_rate = self.learning_rate
+        pass
 
     def update_params(self, layer):
         if not hasattr(layer, "weight_velocity"):
@@ -450,23 +499,37 @@ class Optimizer_SGD_Momentum:
     def post_update_params(self):
         self.iterations += 1
 
+    def getConfig(self):
+        return {
+            "className": "OptimizerMomentum",
+            "learningRate": self.initial_lr,
+            "beta": self.beta
+        }
+
+    def getParameters(self):
+        return None
+    
+    def setParameters(self, paramemters):
+        pass
+
 class Optimizer_Momentum_Decay:
     def __init__(self, beta = 0.9, learning_rate = 0.01, decay_rate = 1e-3):
         self.initial_lr = learning_rate
+        self.current_lr = learning_rate
         self.decay_rate = decay_rate
         self.beta = beta
         self.iterations = 0
 
     def pre_update_params(self):
-        self.learning_rate = self.initial_lr * 1 / (1 + self.decay_rate * self.iterations)
+        self.current_lr = self.initial_lr * 1 / (1 + self.decay_rate * self.iterations)
 
     def update_params(self, layer):
         if not hasattr(layer, "weight_velocity"):
             layer.weight_velocity = np.zeros_like(layer.weights)
             layer.bias_velocity = np.zeros_like(layer.biases)
 
-        layer.weight_velocity = self.beta * layer.weight_velocity + self.learning_rate * layer.dweights
-        layer.bias_velocity = self.beta * layer.bias_velocity + self.learning_rate * layer.dbiases
+        layer.weight_velocity = self.beta * layer.weight_velocity + self.current_lr * layer.dweights
+        layer.bias_velocity = self.beta * layer.bias_velocity + self.current_lr * layer.dbiases
 
         # velocity already includes learning rate, apply directly
         layer.weights -= layer.weight_velocity
@@ -475,6 +538,20 @@ class Optimizer_Momentum_Decay:
     def post_update_params(self):
         self.iterations += 1
 
+    def getConfig(self):
+        return {
+            "className": "OptimizerMomentumDecay",
+            "learningRate": self.initial_lr,
+            "decayRate": self.decay_rate,
+            "beta": self.beta
+        }
+
+    def getParameters(self):
+        return None
+    
+    def setParameters(self, paramemters):
+        pass
+
 class Optimizer_AdaGrad:
     def __init__(self, learning_rate = 0.01, epsilon = 1e-7):
         self.learning_rate = learning_rate
@@ -482,7 +559,7 @@ class Optimizer_AdaGrad:
         self.iterations = 0
     
     def pre_update_params(self):
-        self.learning_rate = self.learning_rate
+        pass
 
     def update_params(self, layer):
         if not hasattr(layer, "weight_cache"):
@@ -497,17 +574,31 @@ class Optimizer_AdaGrad:
     def post_update_params(self):
         self.iterations += 1
 
+    def getConfig(self):
+        return {
+            "className": "OptimizerAdaGrad",
+            "learningRate": self.learning_rate,
+            "epsilon": self.epsilon
+        }
+
+    def getParameters(self):
+        return None
+    
+    def setParameters(self, paramemters):
+        pass
+
 class Optimizer_RMSProp:
     def __init__(self, learning_rate = 0.001, p = 0.9, epsilon = 1e-7):
-        self.learning_rate = learning_rate
+        self.initial_lr = learning_rate
+        self.current_lr = self.current_lr
         self.iterations = 0
         # hệ số giữ lại thông tin
         self.p = p
         self.epsilon = epsilon
 
     def pre_update_params(self):
-        self.learning_rate = self.learning_rate
-    
+        pass
+
     def update_params(self, layer):
         if not hasattr(layer, "moving_average_weight"):
             layer.moving_average_weight = np.zeros_like(layer.weights)
@@ -521,6 +612,20 @@ class Optimizer_RMSProp:
 
     def post_update_params(self):
         self.iterations += 1
+        
+    def getConfig(self):
+        return {
+            "className": "OptimizerRMSProp",
+            "learningRate": self.initial_lr,
+            "p": self.p,
+            "epsilon": self.epsilon
+        }
+
+    def getParameters(self):
+        return None
+    
+    def setParameters(self, paramemters):
+        pass
 
 class Optimizer_Adam:
     def __init__(self, learning_rate = 0.001, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-7, decay_rate = 3e-5):
@@ -559,6 +664,22 @@ class Optimizer_Adam:
 
     def post_update_params(self):
         self.iterations += 1
+
+    def getConfig(self):
+        return {
+            "className": "OptimizerAdam",
+            "learningRate": self.initial_lr,
+            "decayRate": self.decay_rate,
+            "beta1": self.beta1,
+            "beta2": self.beta2,
+            "epsilon": self.epsilon
+        }
+
+    def getParameters(self):
+        return None
+    
+    def setParameters(self, paramemters):
+        pass
 
 class Model:
     def __init__(self):

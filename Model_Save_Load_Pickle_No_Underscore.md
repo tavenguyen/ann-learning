@@ -498,7 +498,7 @@ Ví dụ ReLU:
 class ActivationReLU:
     def getConfig(self):
         return {
-            "className": "DenseLayer"
+            "className": "ActivationReLU"
         }
 ```
 
@@ -508,7 +508,7 @@ Linear:
 class ActivationLinear:
     def getConfig(self):
         return {
-            "className": "DenseLayer"
+            "className": "ActivationLinear"
         }
 ```
 
@@ -536,7 +536,7 @@ Ví dụ MSE:
 class LossMeanSquaredError:
     def getConfig(self):
         return {
-            "className": "DenseLayer"
+            "className": "LossMeanSquaredError"
         }
 ```
 
@@ -554,7 +554,7 @@ class LossMSEWithRegularization:
 
     def getConfig(self):
         return {
-            "className": "DenseLayer",
+            "className": "LossMSEWithRegularization",
             "lambdaL2": self.lambdaL2
         }
 ```
