@@ -589,7 +589,7 @@ class OptimizerAdam:
 
     def getConfig(self):
         return {
-            "className": "DenseLayer",
+            "className": "OptimizerAdam",
             "learningRate": self.initialLearningRate,
             "decayRate": self.decayRate,
             "beta1": self.beta1,
@@ -628,7 +628,7 @@ class AccuracyRegressionTolerance:
 
     def getConfig(self):
         return {
-            "className": "DenseLayer",
+            "className": "AccuracyRegressionTolerance",
             "tolerance": self.tolerance
         }
 ```
@@ -639,7 +639,7 @@ Categorical Accuracy không có tham số:
 class AccuracyCategorical:
     def getConfig(self):
         return {
-            "className": "DenseLayer"
+            "className": "AccuracyCategorical"
         }
 ```
 
