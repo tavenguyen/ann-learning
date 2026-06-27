@@ -782,6 +782,28 @@ class Model:
         
         return (data_loss + reg_loss), accuracy
 
+    def getConfig(self):
+        config = {
+            "layers": [],
+            "loss": None,
+            "optimizer": None,
+            "accuracy": None
+        }   
+
+        for layer in self.layers:
+            config["layers"].append(layer.getConfig())
+
+        if self.loss is not None:
+            config["loss"] = self.loss.getConfig()
+
+        if self.optimizer is not None:
+            config["optimizer"] = self.optimizer.getConfig()
+
+        if self.accuracy is not None:
+            config["accuracy"] = self.accuracy.getConfig()
+
+        return config
+
 class DataLoader:
     def __init__(self, X, y, batch_size=32, suffle=True, drop_last=False):
         self.X = X
