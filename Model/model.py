@@ -27,6 +27,9 @@ class DenseLayer:
       for the given parameters; DenseLayer will add it to dweights/dbiases.
     """
     def __init__(self, n_neurons: int, n_inputs: int, weight_regularizer=None, bias_regularizer=None):
+        self.nInputs = n_inputs
+        self.nNeurons = n_neurons
+        
         self.weights = np.random.randn(n_inputs, n_neurons)
         self.biases = np.zeros((1, n_neurons))
 
@@ -52,6 +55,23 @@ class DenseLayer:
             self.dbiases += self.bias_regularizer.backward(self.biases)
 
         return self.dinputs
+    
+    def getConfig(self):
+        return {
+            "className": "DenseLayer",
+            "nInputs": self.nInputs,
+            "nNeurons": self.nNeurons
+        }
+    
+    def getParameters(self):
+        return {
+            "weights": self.weights,
+            "biases": self.biases
+        }
+    
+    def setParameters(self, parameters):
+        self.weights = parameters["weights"]
+        self.biases = parameters["biases"]
 
 class Regularization_L1:
     """L1 regularization helper.
