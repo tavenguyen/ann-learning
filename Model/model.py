@@ -204,6 +204,11 @@ class Activation_Linear:
         self.dinputs = dvalues.copy()
         return self.dinputs
     
+    def getConfig(self):
+        return {
+            "className": "ActivationLinear"
+        }
+    
 class Activation_ReLU:
     def forward(self, inputs):
         self.inputs = inputs
@@ -214,6 +219,11 @@ class Activation_ReLU:
         self.dinputs = dvalues.copy()
         self.dinputs[self.inputs <= 0] = 0
         return self.dinputs
+    
+    def getConfig(self):
+        return {
+            "className": "ActivationReLU"
+        }
 
 #----------------------------- Loss -------------------------------#
 class Loss:
