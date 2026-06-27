@@ -1,4 +1,5 @@
 import numpy as np
+import pickle
 
 class DenseLayer:
     """Fully-connected (dense) layer.
@@ -458,15 +459,17 @@ class Optimizer_RMSProp:
         self.iterations += 1
 
 class Optimizer_Adam:
-    def __init__(self, learning_rate = 0.001, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-7):
+    def __init__(self, learning_rate = 0.001, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-7, decay_rate = 3e-5):
+        self.initial_lr = learning_rate
         self.current_lr = learning_rate
         self.beta1 = beta1
         self.beta2 = beta2
         self.epsilon = epsilon
+        self.decay_rate = decay_rate
         self.iterations = 0
 
     def pre_update_params(self):
-        self.current_lr = self.current_lr
+        self.current_lr = self.initial_lr * (1 / (1 + self.decay_rate * self.iterations))
 
     def update_params(self, layer):
         if not hasattr(layer, "cache_weight"):
