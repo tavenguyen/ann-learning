@@ -390,7 +390,7 @@ class DenseLayer:
 
     def getConfig(self):
         return {
-            "className": "DenseLayer",
+            "className": self.__class__.__name__,
             "nInputs": self.nInputs,
             "nNeurons": self.nNeurons,
             "initialization": self.initialization
@@ -466,7 +466,7 @@ class DenseLayer:
 
     def getConfig(self):
         return {
-            "className": "DenseLayer",
+            "className": self.__class__.__name__,
             "nInputs": self.nInputs,
             "nNeurons": self.nNeurons,
             "initialization": self.initialization
@@ -498,7 +498,7 @@ Ví dụ ReLU:
 class ActivationReLU:
     def getConfig(self):
         return {
-            "className": "ActivationReLU"
+            "className": self.__class__.__name__
         }
 ```
 
@@ -508,7 +508,7 @@ Linear:
 class ActivationLinear:
     def getConfig(self):
         return {
-            "className": "ActivationLinear"
+            "className": self.__class__.__name__
         }
 ```
 
@@ -536,7 +536,7 @@ Ví dụ MSE:
 class LossMeanSquaredError:
     def getConfig(self):
         return {
-            "className": "LossMeanSquaredError"
+            "className": self.__class__.__name__
         }
 ```
 
@@ -554,7 +554,7 @@ class LossMSEWithRegularization:
 
     def getConfig(self):
         return {
-            "className": "LossMSEWithRegularization",
+            "className": self.__class__.__name__,
             "lambdaL2": self.lambdaL2
         }
 ```
@@ -589,7 +589,7 @@ class OptimizerAdam:
 
     def getConfig(self):
         return {
-            "className": "OptimizerAdam",
+            "className": self.__class__.__name__,
             "learningRate": self.initialLearningRate,
             "decayRate": self.decayRate,
             "beta1": self.beta1,
@@ -628,7 +628,7 @@ class AccuracyRegressionTolerance:
 
     def getConfig(self):
         return {
-            "className": "AccuracyRegressionTolerance",
+            "className": self.__class__.__name__,
             "tolerance": self.tolerance
         }
 ```
@@ -639,7 +639,7 @@ Categorical Accuracy không có tham số:
 class AccuracyCategorical:
     def getConfig(self):
         return {
-            "className": "AccuracyCategorical"
+            "className": self.__class__.__name__
         }
 ```
 
