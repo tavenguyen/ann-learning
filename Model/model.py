@@ -71,23 +71,41 @@ class PointZone:
             self.L[ix] = j
 
 class Circle2D:
-    def __init__(self, n_points, n_classes, n_dimensions):
+    def __init__(self, n_points, n_classes, n_dimensions, noise_std=2.0, radius_step=2.0, random_state=None):
+        """Generate concentric noisy circles (2D only).
+
+        Parameters
+        - n_points: points per class
+        - n_classes: number of concentric circles
+        - n_dimensions: must be 2
+        - noise_std: std dev of radial noise
+        - radius_step: base step between radii (radius = radius_step * (j+1))
+        - random_state: optional int for reproducibility
+        """
+        if random_state is not None:
+            rng = np.random.default_rng(random_state)
+        else:
+            rng = np.random.default_rng()
+
         N = n_points
         K = n_classes
         D = n_dimensions
 
+        if D != 2:
+            raise NotImplementedError("Circle2D supports only 2D (n_dimensions==2)")
+
         self.P = np.zeros((N * K, D))
-        self.L = np.zeros(N * K, dtype = 'uint8')
+        self.L = np.zeros(N * K, dtype='uint8')
 
         for j in range(K):
-            # 2, 4, 6
-            r = 2 * (j + 1)
-            r_noise = r + np.random.randn(N) * 2
-            
+            base_r = radius_step * (j + 1)
+            r_noise = base_r + rng.normal(scale=noise_std, size=N)
+
             theta = np.linspace(0, 2 * np.pi, N)
             idx = range(N * j, N * (j + 1))
-            if D == 2:
-                self.P[idx] = np.c_[r_noise * np.cos(theta), r_noise * np.sin(theta)]
+
+            # polar -> Cartesian
+            self.P[idx] = np.c_[r_noise * np.cos(theta), r_noise * np.sin(theta)]
             self.L[idx] = j
 
 #----------------------------- Dense -------------------------------#
