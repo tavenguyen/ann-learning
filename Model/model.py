@@ -539,7 +539,7 @@ class Optimizer_SGD_Momentum:
     def getConfig(self):
         return {
             "className": "OptimizerMomentum",
-            "learningRate": self.initial_lr,
+            "learningRate": self.learning_rate,
             "beta": self.beta
         }
 
@@ -627,7 +627,7 @@ class Optimizer_AdaGrad:
 class Optimizer_RMSProp:
     def __init__(self, learning_rate = 0.001, p = 0.9, epsilon = 1e-7):
         self.initial_lr = learning_rate
-        self.current_lr = self.current_lr
+        self.current_lr = learning_rate
         self.iterations = 0
         # hệ số giữ lại thông tin
         self.p = p
@@ -644,8 +644,8 @@ class Optimizer_RMSProp:
         layer.moving_average_weight = self.p * layer.moving_average_weight + (1 - self.p) * layer.dweights ** 2
         layer.moving_average_bias = self.p * layer.moving_average_bias + (1 - self.p) * layer.dbiases ** 2
 
-        layer.weights -= self.learning_rate * layer.dweights / (np.sqrt(layer.moving_average_weight) + self.epsilon)
-        layer.biases -= self.learning_rate * layer.dbiases / (np.sqrt(layer.moving_average_bias) + self.epsilon)
+        layer.weights -= self.current_lr * layer.dweights / (np.sqrt(layer.moving_average_weight) + self.epsilon)
+        layer.biases -= self.current_lr * layer.dbiases / (np.sqrt(layer.moving_average_bias) + self.epsilon)
 
     def post_update_params(self):
         self.iterations += 1
@@ -718,6 +718,7 @@ class Optimizer_Adam:
     def setParameters(self, paramemters):
         pass
 
+#----------------------------- Model -------------------------------#
 class Model:
     def __init__(self):
         self.layers = []
@@ -841,6 +842,7 @@ class Model:
 
         return config
 
+#----------------------------- Mini-batch Training -------------------------------#
 class DataLoader:
     def __init__(self, X, y, batch_size=32, suffle=True, drop_last=False):
         self.X = X
