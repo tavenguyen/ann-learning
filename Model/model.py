@@ -252,7 +252,27 @@ class Activation_Softmax:
             self.dinputs[index] = np.dot(jacobian_matrix,single_dvalues)
 
 class Activation_Sigmoid:
-    pass
+    def forward(self, inputs):
+        # Save inputs and compute sigmoid activation
+        self.inputs = inputs
+        self.output = 1.0 / (1.0 + np.exp(-inputs))
+        return self.output
+
+    def backward(self, dvalues):
+        # Derivative of sigmoid: s * (1 - s)
+        self.dinputs = dvalues * (self.output * (1.0 - self.output))
+        return self.dinputs
+
+    def getConfig(self):
+        return {
+            "className": "ActivationSigmoid"
+        }
+
+    def getParameters(self):
+        return None
+
+    def setParameters(self, paramemters):
+        pass
 
 #----------------------------- Loss -------------------------------#
 class Loss:
