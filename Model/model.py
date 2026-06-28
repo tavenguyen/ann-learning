@@ -4,8 +4,12 @@ import pickle
 #----------------------------- DataPoints -------------------------------#
 class Line:
     def __init__(self, n_points, n_classes, n_dimensions, noise_std=2.0, random_state=None):
+        # Use local RNG for reproducibility
         if random_state is not None:
-            np.random.seed(random_state)
+            rng = np.random.default_rng(random_state)
+        else:
+            rng = np.random.default_rng()
+
         N = n_points
         K = n_classes
         D = n_dimensions
@@ -18,7 +22,7 @@ class Line:
             ix = range(N * j, N * (j + 1))
             t = np.linspace(-10, 10, N)
 
-            noise = np.random.randn(N) * noise_std
+            noise = rng.normal(loc=0.0, scale=noise_std, size=N)
 
             if D == 2:
                 y = a * t + b0 + noise
@@ -54,17 +58,21 @@ class SpiralData:
             self.L[ix] = j
 
 class PointZone:
-    def __init__(self, n_points, n_classes):
+    def __init__(self, n_points, n_classes, cluster_std=1.0, radius=3.0, random_state=None):
+        if random_state is not None:
+            rng = np.random.default_rng(random_state)
+        else:
+            rng = np.random.default_rng()
+
         self.P = np.zeros((n_points * n_classes, 2))
         self.L = np.zeros(n_points * n_classes, dtype='uint8')
         
         for j in range(n_classes):
-            np.random.seed(j)
-            offset_x = np.cos(j * np.pi / 2) * 3.0  
-            offset_y = np.sin(j * np.pi / 2) * 3.0
+            offset_x = np.cos(j * np.pi / 2) * radius
+            offset_y = np.sin(j * np.pi / 2) * radius
             
-            x = np.random.randn(n_points) + offset_x
-            y = np.random.randn(n_points) + offset_y
+            x = rng.normal(loc=offset_x, scale=cluster_std, size=n_points)
+            y = rng.normal(loc=offset_y, scale=cluster_std, size=n_points)
             
             ix = range(n_points * j, n_points * (j + 1))
             self.P[ix] = np.c_[x, y]
