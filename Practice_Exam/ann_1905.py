@@ -24,7 +24,7 @@ class PointZone:
 
 class Dense:
     def __init__(self, n_neurons, n_inputs):
-        self.weights = np.random.randn(n_inputs, n_neurons)
+        self.weights = 0.01 * np.random.randn(n_inputs, n_neurons)
         self.biases = np.zeros((1, n_neurons))
 
     def forward(self, inputs):
@@ -119,37 +119,42 @@ class Activation_Softmax_Loss_CategoricalCrossEntropy(Loss):
         return self.dinputs
 
 class Optimizer_Adam:
-    def __init__(self, learning_rate = 0.001, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-7):
+    def __init__(self, learning_rate = 0.001, beta1=0.9, beta2=0.999, epsilon = 1e-7, decay_rate = 5e-3):
+        self.initial_lr = learning_rate
         self.current_lr = learning_rate
         self.beta1 = beta1
         self.beta2 = beta2
         self.epsilon = epsilon
+        self.decay_rate = decay_rate
         self.iterations = 0
 
     def pre_update_params(self):
-        self.current_lr = self.current_lr
+        if self.decay_rate:
+            self.current_lr = self.initial_lr * (1 / (1 + self.decay_rate * self.iterations))
 
     def update_params(self, layer):
-        if not hasattr(layer, "cache_weight"):
-            layer.cache_weight_g = np.zeros_like(layer.weights)
-            layer.cache_weight_g2 = np.zeros_like(layer.weights)
-            layer.cache_bias_g = np.zeros_like(layer.biases)
-            layer.cache_bias_g2 = np.zeros_like(layer.biases)
+        if not hasattr(layer, "weight_momentum"):
+            layer.weight_momentum = np.zeros_like(layer.weights)
+            layer.weight_cache = np.zeros_like(layer.weights)
+            layer.bias_momentum = np.zeros_like(layer.biases)
+            layer.bias_cache = np.zeros_like(layer.biases)
 
-        layer.cache_weight_g = self.beta1 * layer.cache_weight_g + (1 - self.beta1) * layer.dweights
-        layer.cache_weight_g2 = self.beta2 * layer.cache_weight_g2 + (1 - self.beta2) * layer.dweights ** 2
+        layer.weight_momentum = self.beta1 * layer.weight_momentum + (1 - self.beta1) * layer.dweights
+        layer.weight_cache = self.beta2 * layer.weight_cache + (1 - self.beta2) * layer.dweights ** 2
 
-        layer.cache_bias_g = self.beta1 * layer.cache_bias_g + (1 - self.beta1) * layer.dbiases
-        layer.cache_bias_g2 = self.beta2 * layer.cache_bias_g2 + (1 - self.beta2) * layer.dbiases ** 2
+        layer.bias_momentum = self.beta1 * layer.bias_momentum + (1 - self.beta1) * layer.dbiases
+        layer.bias_cache = self.beta2 * layer.bias_cache + (1 - self.beta2) * layer.dbiases ** 2
 
-        layer.cache_weight_g_correction = layer.cache_weight_g / (1 - self.beta1 ** (self.iterations + 1))
-        layer.cache_weight_g2_correction = layer.cache_weight_g2 / (1 - self.beta2 ** (self.iterations + 1))
+        # correction
+        layer.weight_momentum_cr = layer.weight_momentum / (1 - self.beta1 ** (self.iterations + 1))
+        layer.weight_cache_cr = layer.weight_cache / (1 - self.beta2 ** (self.iterations + 1))
 
-        layer.cache_bias_g_correction = layer.cache_bias_g / (1 - self.beta1 ** (self.iterations + 1))
-        layer.cache_bias_g2_correction = layer.cache_bias_g2 / (1 - self.beta2 ** (self.iterations + 1))
+        layer.bias_momentum_cr = layer.bias_momentum / (1 - self.beta1 ** (self.iterations + 1))
+        layer.bias_cache_cr = layer.bias_cache / (1 - self.beta2 ** (self.iterations + 1))
 
-        layer.weights -= self.current_lr * layer.cache_weight_g_correction / (np.sqrt(layer.cache_weight_g2_correction) + self.epsilon)
-        layer.biases -= self.current_lr * layer.cache_bias_g_correction / (np.sqrt(layer.cache_bias_g2_correction) + self.epsilon)
+        # update weights
+        layer.weights -= self.current_lr * layer.weight_momentum_cr / (np.sqrt(layer.weight_cache_cr) + self.epsilon)
+        layer.biases -= self.current_lr * layer.bias_momentum_cr / (np.sqrt(layer.bias_cache_cr) + self.epsilon)
 
     def post_update_params(self):
         self.iterations += 1
@@ -158,7 +163,7 @@ Zone = PointZone(n_points=800, n_classes=4)
 
 X_input = Zone.P      # Shape: (3200, 2) - Dữ liệu có 2 neuron ngõ vào
 Y_true = Zone.L       # Shape: (3200,)   - Nhãn (Class từ 0 đến 3)
-EPOCHS = 10001
+EPOCHS = 7001
 
 plt.scatter(X_input[:, 0], X_input[:, 1], s=5, c=Y_true, cmap='brg')
 plt.show()
@@ -170,7 +175,7 @@ activation2 = Activation_ReLU()
 layerOutput = Dense(n_inputs=32, n_neurons=4) # Output 4 class
 
 loss_function = Activation_Softmax_Loss_CategoricalCrossEntropy()
-optimizer = Optimizer_Adam(learning_rate=0.001)
+optimizer = Optimizer_Adam(learning_rate=0.01)
 
 for epoch in range(EPOCHS):
     dense_layer1.forward(X_input)
