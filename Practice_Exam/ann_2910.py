@@ -17,7 +17,7 @@ class SpiralData:
 
 class Dense:
     def __init__(self, n_inputs, n_neurons):
-        self.weights = np.random.randn(n_inputs, n_neurons)
+        self.weights = 0.01 * np.random.randn(n_inputs, n_neurons)
         self.biases = np.zeros((1, n_neurons))
     
     def forward(self, inputs):
@@ -216,15 +216,10 @@ for epoch in range(10001):
 TestZone = SpiralData(n_points=50, n_classes=3)
 layer1.forward(TestZone.P)
 activation1.forward(layer1.output)
-dropout_layer1.forward(activation1.output)
-
-layer2.forward(dropout_layer1.output)
+layer2.forward(activation1.output)
 activation2.forward(layer2.output)
-dropout_layer2.forward(activation2.output)
-
-layerOutput.forward(dropout_layer2.output)
-
-predictions = (layerOutput == TestZone.L)
+layerOutput.forward(activation2.output)
+predictions = np.argmax(layerOutput.output, axis=1)
 
 plt.figure(figsize=(10, 4))
 
