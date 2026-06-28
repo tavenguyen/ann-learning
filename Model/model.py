@@ -70,6 +70,26 @@ class PointZone:
             self.P[ix] = np.c_[x, y]
             self.L[ix] = j
 
+class Circle2D:
+    def __init__(self, n_points, n_classes, n_dimensions):
+        N = n_points
+        K = n_classes
+        D = n_dimensions
+
+        self.P = np.zeros((N * K, D))
+        self.L = np.zeros(N * K, dtype = 'uint8')
+
+        for j in range(K):
+            # 2, 4, 6
+            r = 2 * (j + 1)
+            r_noise = r + np.random.randn(N) * 2
+            
+            theta = np.linspace(0, 2 * np.pi, N)
+            idx = range(N * j, N * (j + 1))
+            if D == 2:
+                self.P[idx] = np.c_[r_noise * np.cos(theta), r_noise * np.sin(theta)]
+            self.L[idx] = j
+
 #----------------------------- Dense -------------------------------#
 
 class DenseLayer:
