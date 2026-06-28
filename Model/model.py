@@ -1,6 +1,77 @@
 import numpy as np
 import pickle
 
+#----------------------------- DataPoints -------------------------------#
+class Line:
+    def __init__(self, n_points, n_classes, n_dimensions, noise_std=2.0, random_state=None):
+        if random_state is not None:
+            np.random.seed(random_state)
+        N = n_points
+        K = n_classes
+        D = n_dimensions
+
+        self.P = np.zeros((N * K, D))
+        self.L = np.zeros(N * K, dtype='uint8')
+        for j in range(K):
+            a = 2 * (j - 1)
+            b0 = (j - 2) * 2
+            ix = range(N * j, N * (j + 1))
+            t = np.linspace(-10, 10, N)
+
+            noise = np.random.randn(N) * noise_std
+
+            if D == 2:
+                y = a * t + b0 + noise
+                self.P[ix] = np.c_[t, y]
+            else:
+                raise NotImplementedError("Only D==2 supported for Line data generator.")
+            self.L[ix] = j
+
+class Quadratic:
+    def __init__(self, n_points, a, b, c, x_min = -10.0, x_max = 10.0, noise_std = 2.0):
+        self.a = a
+        self.b = b
+        self.c = c
+
+        self.X = np.linspace(x_min, x_max, n_points).reshape(-1, 1)
+
+        # noise ~ N(0, noise_std^2)
+        noise = np.random.randn(n_points, 1) * noise_std
+        self.Y = (a * self.X ** 2 + b * self.X + c) + noise
+
+class SpiralData:
+    def __init__(self, n_points, n_classes):
+        dimensions = 2
+        self.P = np.zeros((n_points * n_classes, dimensions))
+        self.L = np.zeros(n_points * n_classes, dtype = 'uint8')
+
+        for j in range(n_classes):
+            ix = range(n_points * j , n_points * (j + 1))
+            r = np.linspace(0, 1, n_points)
+            theta = np.linspace(j * 4, (j + 1) * 4, n_points) + np.random.randn(n_points) * 0.6
+        
+            self.P[ix] = np.c_[r * np.sin(theta), r * np.cos(theta)]
+            self.L[ix] = j
+
+class PointZone:
+    def __init__(self, n_points, n_classes):
+        self.P = np.zeros((n_points * n_classes, 2))
+        self.L = np.zeros(n_points * n_classes, dtype='uint8')
+        
+        for j in range(n_classes):
+            np.random.seed(j)
+            offset_x = np.cos(j * np.pi / 2) * 3.0  
+            offset_y = np.sin(j * np.pi / 2) * 3.0
+            
+            x = np.random.randn(n_points) + offset_x
+            y = np.random.randn(n_points) + offset_y
+            
+            ix = range(n_points * j, n_points * (j + 1))
+            self.P[ix] = np.c_[x, y]
+            self.L[ix] = j
+
+#----------------------------- Dense -------------------------------#
+
 class DenseLayer:
     """Fully-connected (dense) layer.
 
