@@ -14,7 +14,7 @@ class Quadratic:
         noise = np.random.randn(n_points, 1) * noise_std
         self.Y = (a * self.X ** 2 + b * self.X + c) + noise
 
-inputs = Quadratic(n_points = 100, a = 2.0, b = 3.0, c = 5.0, noise_std=2.0)
+inputs = Quadratic(n_points = 50, a = 2.0, b = 3.0, c = 5.0, noise_std=2.0)
 X = inputs.X
 Y = inputs.Y
 plt.scatter(X, Y, s = 5)
@@ -25,7 +25,7 @@ X_inputs = np.c_[X ** 2, X]
 quadratic_model = Model.Model()
 quadratic_model.add(Model.DenseLayer(n_inputs = 2, n_neurons = 1))
 quadratic_model.add(Model.Activation_Linear())
-quadratic_model.set(loss = Model.Loss_MeanSquaredError(), optimizer = Model.Optimizer_Adam(learning_rate=0.001), accuracy = None)
+quadratic_model.set(loss = Model.Loss_MeanSquaredError(), optimizer = Model.Optimizer_Adam(learning_rate=0.01), accuracy = None)
 quadratic_model.finalize()
 quadratic_model.train(X_inputs, Y)
 
