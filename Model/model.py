@@ -1010,8 +1010,13 @@ class Model:
         return reg_loss
 
     # forward -> loss -> accuracy -> backward -> update params -> print
-    def train(self, X, y, epochs=10000, batch_size=None, print_every=100, validation_data=None):
+    def train(self, X, y, epochs=10000, batch_size=None, print_every=100, validation_data=None,
+              use_minibatch_trainer=True, early_stopping_patience=None, validation_split=None):
         """Huấn luyện mô hình với Mini-batch Gradient Descent.
+        
+        Có 2 mode:
+        1. use_minibatch_trainer=True (mặc định): Dùng MiniBatchTrainer với features nâng cao
+        2. use_minibatch_trainer=False: Dùng simple training loop như cũ
         
         Parameters
         ----------
@@ -1027,74 +1032,99 @@ class Model:
             Tần suất in log ra console.
         validation_data : tuple (X_val, y_val), optional
             Dữ liệu để kiểm thử sau mỗi epoch báo cáo.
+        use_minibatch_trainer : bool, default=True
+            Dùng MiniBatchTrainer hay simple loop
+        early_stopping_patience : int, optional
+            Dừng nếu val_loss không cải thiện trong N epochs
+        validation_split : float, optional
+            Tỉ lệ chia validation từ training data (0.0-1.0)
         """
-        # Đảm bảo model đã được finalize trước khi train
-        if not hasattr(self, "trainable_layers"):
-            self.finalize()
+        if use_minibatch_trainer:
+            # Dùng MiniBatchTrainer
+            config = MiniBatchConfig(
+                batch_size=batch_size or 32,
+                shuffle=True,
+                drop_last=False,
+                epochs=epochs,
+                validation_split=validation_split
+            )
+            trainer = MiniBatchTrainer(self, config)
+            return trainer.train(
+                X, y, 
+                epochs=epochs,
+                batch_size=batch_size,
+                validation_data=validation_data,
+                print_every=print_every,
+                early_stopping_patience=early_stopping_patience
+            )
+        else:
+            # Simple training loop (compatible với cũ)
+            if not hasattr(self, "trainable_layers"):
+                self.finalize()
 
-        if self.accuracy is not None:
-            self.accuracy.init(y)
-
-        # Nếu không truyền batch_size, ta sử dụng toàn bộ dữ liệu (Full-batch)
-        bs = batch_size if batch_size is not None else len(X)
-
-        for epoch in range(epochs + 1):
-            # Khởi tạo lại trạng thái Accuracy cho epoch mới
             if self.accuracy is not None:
                 self.accuracy.new_pass()
-            
-            epoch_data_loss = 0
-            epoch_reg_loss = 0
-            
-            # Khởi tạo DataLoader cho epoch này (để shuffle dữ liệu)
-            train_loader = DataLoader(X, y, batch_size=bs, shuffle=True)
-            
-            for X_batch, y_batch in train_loader:
-                # 1. Forward pass
-                y_pred = self.forward(X_batch, training=True)
 
-                # 2. Tính Loss
-                data_loss = self.loss.calculate(y_pred, y_batch)
-                reg_loss = self.get_regularization_loss()
-                
-                # 3. Tính Accuracy (hàm calculate sẽ tự tích lũy vào instance accuracy)
+            # Nếu không truyền batch_size, ta sử dụng toàn bộ dữ liệu (Full-batch)
+            bs = batch_size if batch_size is not None else len(X)
+
+            for epoch in range(epochs + 1):
+                # Khởi tạo lại trạng thái Accuracy cho epoch mới
                 if self.accuracy is not None:
-                    self.accuracy.calculate(y_pred, y_batch)
-
-                # 4. Backward pass
-                self.backward(y_pred, y_batch)
-
-                # 5. Cập nhật trọng số
-                self.update_params()
+                    self.accuracy.new_pass()
                 
-                epoch_data_loss += data_loss
-                epoch_reg_loss += reg_loss
+                epoch_data_loss = 0
+                epoch_reg_loss = 0
+                
+                # Khởi tạo DataLoader cho epoch này (để shuffle dữ liệu)
+                train_loader = DataLoader(X, y, batch_size=bs, shuffle=True)
+                
+                for X_batch, y_batch in train_loader:
+                    # 1. Forward pass
+                    y_pred = self.forward(X_batch, training=True)
 
-            # Tính toán các chỉ số trung bình sau một epoch
-            n_batches = len(train_loader)
-            avg_data_loss = epoch_data_loss / n_batches
-            avg_reg_loss = epoch_reg_loss / n_batches
-            avg_loss = avg_data_loss + avg_reg_loss
-            avg_acc = self.accuracy.calculate_accumulated() if self.accuracy is not None else None
+                    # 2. Tính Loss
+                    data_loss = self.loss.calculate(y_pred, y_batch)
+                    reg_loss = self.get_regularization_loss()
+                    
+                    # 3. Tính Accuracy (hàm calculate sẽ tự tích lũy vào instance accuracy)
+                    if self.accuracy is not None:
+                        self.accuracy.calculate(y_pred, y_batch)
 
-            # Báo cáo kết quả
-            if epoch % print_every == 0:
-                stats = f"epoch: {epoch}, loss: {avg_loss:.5f} (data: {avg_data_loss:.5f}, reg: {avg_reg_loss:.5f})"
-                if avg_acc is not None:
-                    stats += f", acc: {avg_acc:.5f}"
-                
-                # Kiểm tra kết quả trên tập Validation (nếu có)
-                if validation_data:
-                    val_loss, val_acc = self.evaluate(*validation_data)
-                    stats += f" | val_loss: {val_loss:.5f}"
-                    if val_acc is not None:
-                        stats += f", val_acc: {val_acc:.5f}"
-                
-                # Hiển thị learning rate hiện tại (nếu optimizer có decay)
-                if hasattr(self.optimizer, 'current_lr'):
-                    stats += f", lr: {self.optimizer.current_lr:.6f}"
-                
-                print(stats)
+                    # 4. Backward pass
+                    self.backward(y_pred, y_batch)
+
+                    # 5. Cập nhật trọng số
+                    self.update_params()
+                    
+                    epoch_data_loss += data_loss
+                    epoch_reg_loss += reg_loss
+
+                # Tính toán các chỉ số trung bình sau một epoch
+                n_batches = len(train_loader)
+                avg_data_loss = epoch_data_loss / n_batches
+                avg_reg_loss = epoch_reg_loss / n_batches
+                avg_loss = avg_data_loss + avg_reg_loss
+                avg_acc = self.accuracy.calculate_accumulated() if self.accuracy is not None else None
+
+                # Báo cáo kết quả
+                if epoch % print_every == 0:
+                    stats = f"epoch: {epoch}, loss: {avg_loss:.5f} (data: {avg_data_loss:.5f}, reg: {avg_reg_loss:.5f})"
+                    if avg_acc is not None:
+                        stats += f", acc: {avg_acc:.5f}"
+                    
+                    # Kiểm tra kết quả trên tập Validation (nếu có)
+                    if validation_data:
+                        val_loss, val_acc = self.evaluate(*validation_data)
+                        stats += f" | val_loss: {val_loss:.5f}"
+                        if val_acc is not None:
+                            stats += f", val_acc: {val_acc:.5f}"
+                    
+                    # Hiển thị learning rate hiện tại (nếu optimizer có decay)
+                    if hasattr(self.optimizer, 'current_lr'):
+                        stats += f", lr: {self.optimizer.current_lr:.6f}"
+                    
+                    print(stats)
 
     # dự đoán sau khi train, chỉ gồm forward. Khác với training gồm forward, backward, update
     def predict(self, inputs):
@@ -1278,38 +1308,337 @@ class Model:
         print(f"Đã tải mô hình thành công từ file: '{filepath}'")
         return model
 
-#----------------------------- Mini-batch Training -------------------------------#
+#----------------------------- Mini-batch Training (OOP DataLoader) -------------------------------#
+
 class DataLoader:
-    def __init__(self, X, y, batch_size=32, shuffle=True, drop_last=False):
+    """Enhanced OOP DataLoader for mini-batch training.
+    
+    Hỗ trợ:
+    - Batch shuffling và sampling
+    - Reproducibility (random_state)
+    - Batch statistics tracking
+    - Drop last batch option
+    - Multiple iterations
+    
+    Parameters
+    ----------
+    X : np.ndarray
+        Input features (N_samples, n_features)
+    y : np.ndarray
+        Target labels (N_samples,) hoặc (N_samples, n_outputs)
+    batch_size : int, default=32
+        Kích thước mini-batch
+    shuffle : bool, default=True
+        Có shuffle dữ liệu trước khi tạo batch không
+    drop_last : bool, default=False
+        Có drop batch cuối cùng nếu không đủ batch_size không
+    random_state : int, optional
+        Seed cho reproducibility
+    """
+    
+    def __init__(self, X, y, batch_size=32, shuffle=True, drop_last=False, random_state=None):
         self.X = X
         self.y = y
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.drop_last = drop_last
-
+        self.random_state = random_state
+        
         self.n_samples = len(X)
+        self._epoch_count = 0
+        self._batch_count = 0
+        self._current_indices = None
     
-    def __iter__(self):
+    def _get_indices(self):
+        """Lấy indices với shuffle tuỳ chọn."""
         if self.shuffle:
-            indices = np.random.permutation(self.n_samples)
+            if self.random_state is not None:
+                rng = np.random.RandomState(self.random_state + self._epoch_count)
+            else:
+                rng = np.random.RandomState()
+            indices = rng.permutation(self.n_samples)
         else:
             indices = np.arange(self.n_samples)
-            
-        X_shuffled = self.X[indices]
-        y_shuffled = self.y[indices]
-
-        for start in range(0, self.n_samples, self.batch_size):
-            end = start + self.batch_size
-            if end > self.n_samples and self.drop_last:
-                return
-            
-            # cú pháp slicing sẽ tự dừng ở phần tử cuối cùng nếu end lớn hơn n_samples
-            x_batches = X_shuffled[start:end]
-            y_batches = y_shuffled[start:end]
-            yield x_batches, y_batches
-
-    def __len__(self):
-        if self.drop_last: 
-            return (self.n_samples // self.batch_size)
+        return indices
+    
+    def __iter__(self):
+        """Iterate qua các mini-batches."""
+        self._current_indices = self._get_indices()
+        X_shuffled = self.X[self._current_indices]
+        y_shuffled = self.y[self._current_indices]
+        self._batch_count = 0
         
+        for start in range(0, self.n_samples, self.batch_size):
+            end = min(start + self.batch_size, self.n_samples)
+            
+            if self.drop_last and end - start < self.batch_size:
+                break
+            
+            x_batch = X_shuffled[start:end]
+            y_batch = y_shuffled[start:end]
+            
+            self._batch_count += 1
+            yield x_batch, y_batch
+        
+        self._epoch_count += 1
+    
+    def __len__(self):
+        """Trả về số lượng batches trong 1 epoch."""
+        if self.drop_last:
+            return self.n_samples // self.batch_size
         return int(np.ceil(self.n_samples / self.batch_size))
+    
+    def get_batch_count(self):
+        """Lấy số batch hiện tại."""
+        return self._batch_count
+    
+    def get_epoch_count(self):
+        """Lấy số epoch đã lặp."""
+        return self._epoch_count
+    
+    def get_n_batches(self):
+        """Alias cho __len__()."""
+        return len(self)
+    
+    def reset(self):
+        """Reset lại trạng thái epoch và batch count."""
+        self._epoch_count = 0
+        self._batch_count = 0
+        self._current_indices = None
+
+
+class MiniBatchConfig:
+    """Cấu hình cho mini-batch training.
+    
+    Parameters
+    ----------
+    batch_size : int, default=32
+        Kích thước mini-batch
+    shuffle : bool, default=True
+        Shuffle dữ liệu
+    drop_last : bool, default=False
+        Drop batch cuối cùng
+    random_state : int, optional
+        Seed cho reproducibility
+    epochs : int, default=100
+        Số epochs
+    validation_split : float, optional
+        Tỉ lệ chia validation từ training data (nếu không có validation_data)
+    """
+    
+    def __init__(self, batch_size=32, shuffle=True, drop_last=False, 
+                 random_state=None, epochs=100, validation_split=None):
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+        self.drop_last = drop_last
+        self.random_state = random_state
+        self.epochs = epochs
+        self.validation_split = validation_split
+    
+    def create_dataloader(self, X, y):
+        """Tạo DataLoader từ config."""
+        return DataLoader(X, y, batch_size=self.batch_size, 
+                         shuffle=self.shuffle, drop_last=self.drop_last,
+                         random_state=self.random_state)
+
+
+class MiniBatchTrainer:
+    """Mini-batch training controller tích hợp với Model.
+    
+    Quản lý quá trình training với mini-batches, validation, và callbacks.
+    
+    Parameters
+    ----------
+    model : Model
+        Model cần train
+    config : MiniBatchConfig, optional
+        Cấu hình mini-batch
+    """
+    
+    def __init__(self, model, config=None):
+        self.model = model
+        self.config = config or MiniBatchConfig()
+        self.history = {
+            'train_loss': [],
+            'train_acc': [],
+            'train_reg_loss': [],
+            'val_loss': [],
+            'val_acc': [],
+            'lr': [],
+            'batch_count': []
+        }
+        self.best_val_loss = float('inf')
+        self.best_weights = None
+        self.early_stop = False
+    
+    def _split_validation_data(self, X, y, split_ratio):
+        """Chia dữ liệu thành train và validation."""
+        n_train = int(len(X) * (1 - split_ratio))
+        
+        if self.config.random_state is not None:
+            rng = np.random.RandomState(self.config.random_state)
+            indices = rng.permutation(len(X))
+        else:
+            indices = np.random.permutation(len(X))
+        
+        train_indices = indices[:n_train]
+        val_indices = indices[n_train:]
+        
+        X_train = X[train_indices]
+        y_train = y[train_indices]
+        X_val = X[val_indices]
+        y_val = y[val_indices]
+        
+        return (X_train, y_train), (X_val, y_val)
+    
+    def train(self, X, y, epochs=None, batch_size=None, validation_data=None,
+              print_every=100, early_stopping_patience=None):
+        """Training loop với mini-batches.
+        
+        Parameters
+        ----------
+        X : np.ndarray
+            Training features
+        y : np.ndarray
+            Training labels
+        epochs : int, optional
+            Số epochs (dùng config.epochs nếu None)
+        batch_size : int, optional
+            Batch size (dùng config.batch_size nếu None)
+        validation_data : tuple (X_val, y_val), optional
+            Validation data. Nếu None thì dùng validation_split
+        print_every : int, default=100
+            In log mỗi N epochs
+        early_stopping_patience : int, optional
+            Dừng nếu val_loss không cải thiện trong N epochs
+        
+        Returns
+        -------
+        dict
+            Training history
+        """
+        epochs = epochs or self.config.epochs
+        batch_size = batch_size or self.config.batch_size
+        
+        # Finalize model nếu chưa
+        if not hasattr(self.model, "trainable_layers"):
+            self.model.finalize()
+        
+        # Xử lý validation data
+        if validation_data is None and self.config.validation_split:
+            (X_train, y_train), validation_data = self._split_validation_data(
+                X, y, self.config.validation_split
+            )
+        else:
+            X_train, y_train = X, y
+        
+        # Reset early stopping
+        self.early_stop = False
+        early_stop_counter = 0
+        
+        # Training loop
+        for epoch in range(epochs):
+            if self.early_stop:
+                print(f"Early stopping at epoch {epoch}")
+                break
+            
+            # Reset accuracy cho epoch mới
+            if self.model.accuracy is not None:
+                self.model.accuracy.new_pass()
+            
+            epoch_data_loss = 0
+            epoch_reg_loss = 0
+            batch_count = 0
+            
+            # Tạo dataloader cho epoch này
+            train_loader = DataLoader(
+                X_train, y_train,
+                batch_size=batch_size,
+                shuffle=self.config.shuffle,
+                drop_last=self.config.drop_last,
+                random_state=self.config.random_state
+            )
+            
+            # Mini-batch loop
+            for X_batch, y_batch in train_loader:
+                # Forward pass
+                y_pred = self.model.forward(X_batch, training=True)
+                
+                # Calculate losses
+                data_loss = self.model.loss.calculate(y_pred, y_batch)
+                reg_loss = self.model.get_regularization_loss()
+                
+                # Calculate accuracy
+                if self.model.accuracy is not None:
+                    self.model.accuracy.calculate(y_pred, y_batch)
+                
+                # Backward pass
+                self.model.backward(y_pred, y_batch)
+                
+                # Update parameters
+                self.model.update_params()
+                
+                epoch_data_loss += data_loss
+                epoch_reg_loss += reg_loss
+                batch_count += 1
+            
+            # Tính average losses cho epoch
+            n_batches = len(train_loader)
+            avg_data_loss = epoch_data_loss / n_batches
+            avg_reg_loss = epoch_reg_loss / n_batches
+            avg_loss = avg_data_loss + avg_reg_loss
+            avg_acc = (self.model.accuracy.calculate_accumulated() 
+                      if self.model.accuracy is not None else None)
+            
+            # Validation
+            val_loss = None
+            val_acc = None
+            if validation_data is not None:
+                X_val, y_val = validation_data
+                val_loss, val_acc = self.model.evaluate(X_val, y_val)
+            
+            # Lưu vào history
+            self.history['train_loss'].append(avg_data_loss)
+            self.history['train_acc'].append(avg_acc)
+            self.history['train_reg_loss'].append(avg_reg_loss)
+            self.history['val_loss'].append(val_loss)
+            self.history['val_acc'].append(val_acc)
+            self.history['batch_count'].append(batch_count)
+            
+            if hasattr(self.model.optimizer, 'current_lr'):
+                self.history['lr'].append(self.model.optimizer.current_lr)
+            
+            # Early stopping
+            if early_stopping_patience and val_loss is not None:
+                if val_loss < self.best_val_loss:
+                    self.best_val_loss = val_loss
+                    self.best_weights = self.model.getParameters()
+                    early_stop_counter = 0
+                else:
+                    early_stop_counter += 1
+                    if early_stop_counter >= early_stopping_patience:
+                        self.early_stop = True
+            
+            # Print log
+            if epoch % print_every == 0:
+                msg = f"epoch: {epoch}, loss: {avg_loss:.5f} (data: {avg_data_loss:.5f}, reg: {avg_reg_loss:.5f})"
+                if avg_acc is not None:
+                    msg += f", acc: {avg_acc:.5f}"
+                if val_loss is not None:
+                    msg += f" | val_loss: {val_loss:.5f}"
+                if val_acc is not None:
+                    msg += f", val_acc: {val_acc:.5f}"
+                if hasattr(self.model.optimizer, 'current_lr'):
+                    msg += f", lr: {self.model.optimizer.current_lr:.6f}"
+                print(msg)
+        
+        # Restore best weights nếu có early stopping
+        if self.best_weights is not None and self.early_stop:
+            self.model.setParameters(self.best_weights)
+            print("Restored best weights from early stopping")
+        
+        return self.history
+    
+    def get_history(self):
+        """Trả về training history."""
+        return self.history
