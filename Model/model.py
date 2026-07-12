@@ -1,6 +1,34 @@
 import numpy as np
 import pickle
 
+# sử dụng Decorator
+class AppRegistry:
+    def __init__(self):
+        # Tạo một dictionary lưu trữ ánh xạ
+        self._registry = {}
+
+    def register(self, cls):
+        """Decorator để tự động đăng ký class vào hệ thống."""
+        name = cls.__name__
+        if name in self._registry:
+            raise ValueError(f"Đã tồn tại class '{name}'")
+
+        self._registry[name] = cls
+        return cls
+
+    def get(self, name, *args, **kwargs):
+        """Khởi tạo và trả về instance của class dựa trên tên chuỗi."""
+        cls = self._registry.get(name)
+        if not cls:
+            raise KeyError(f"Không tìm thấy class '{name}' trong Registry!")
+        # Khởi tạo instance với các tham số truyền vào (nếu có)
+        return cls(*args, **kwargs)
+    
+    def list_classes(self):
+        return list(self._registry.keys())
+
+CLASS_REGISTRY = AppRegistry()
+
 #----------------------------- DataPoints -------------------------------#
 class Line:
     def __init__(self, n_points, n_classes, n_dimensions, noise_std=2.0, random_state=None):
@@ -118,6 +146,7 @@ class Circle2D:
 
 #----------------------------- Dense -------------------------------#
 
+@CLASS_REGISTRY.register
 class DenseLayer:
     """Fully-connected (dense) layer.
 
@@ -190,6 +219,7 @@ class DenseLayer:
         self.weights = parameters["weights"]
         self.biases = parameters["biases"]
 
+@CLASS_REGISTRY.register
 class Regularization_L1:
     """L1 regularization helper.
 
@@ -219,6 +249,7 @@ class Regularization_L1:
         gradient[parameters < 0] = -1
         return self.strength * gradient
     
+@CLASS_REGISTRY.register
 class Regularization_L2:
     """L2 regularization helper.
 
@@ -245,6 +276,7 @@ class Regularization_L2:
     def backward(self, parameters: np.ndarray) -> np.ndarray:
         return 2 * self.strength * parameters
 
+@CLASS_REGISTRY.register
 class Regularization_L1L2:
     """Combined L1+L2 regularization.
 
@@ -281,6 +313,7 @@ class Regularization_L1L2:
         return l1_gradient + l2_gradient
 
 # chi su dung trong training
+@CLASS_REGISTRY.register
 class Layer_Dropout:
     def __init__(self, dropout_rate):
         if dropout_rate < 0 or dropout_rate >= 1:
@@ -311,6 +344,7 @@ class Layer_Dropout:
         return self.dinputs
 
 #----------------------------- Activation -------------------------------#
+@CLASS_REGISTRY.register
 class Activation_Linear:
     def forward(self, inputs):
         self.inputs = inputs
@@ -332,6 +366,7 @@ class Activation_Linear:
     def setParameters(self, paramemters):
         pass
     
+@CLASS_REGISTRY.register
 class Activation_ReLU:
     def forward(self, inputs):
         self.inputs = inputs
@@ -354,6 +389,7 @@ class Activation_ReLU:
     def setParameters(self, paramemters):
         pass
 
+@CLASS_REGISTRY.register
 class Activation_Softmax:
     def forward(self, inputs):
         exp_values = np.exp(inputs - np.max(inputs, axis = 1, keepdims=True))
@@ -368,6 +404,7 @@ class Activation_Softmax:
             jacobian_matrix = np.diagflat(single_output) - np.dot(single_output,single_output.T)
             self.dinputs[index] = np.dot(jacobian_matrix,single_dvalues)
 
+@CLASS_REGISTRY.register
 class Activation_Sigmoid:
     def forward(self, inputs):
         # Save inputs and compute sigmoid activation
@@ -392,12 +429,14 @@ class Activation_Sigmoid:
         pass
 
 #----------------------------- Loss -------------------------------#
+@CLASS_REGISTRY.register
 class Loss:
     def calculate(self, y_pred, y_true):
         sample_losses = self.forward(y_pred, y_true)
         self.output = np.mean(sample_losses)
         return self.output
     
+@CLASS_REGISTRY.register
 class Activation_Softmax_Loss_CategoricalCrossEntropy(Loss):
     def forward(self, y_pred, y_true):
         # Softmax activation
@@ -445,6 +484,7 @@ class Activation_Softmax_Loss_CategoricalCrossEntropy(Loss):
     def setParameters(self, paramemters):
         pass
 
+@CLASS_REGISTRY.register
 class Loss_MeanSquaredError(Loss):
     def forward(self, y_pred, y_true):
         squared_error = (y_pred - y_true) ** 2
@@ -498,6 +538,7 @@ class Accuracy:
 # Trước mỗi epoch: accuracy.new_pass()
 # Sau mỗi epoch: batch_accuracy = accuracy.calculate(predictions, y_batch)
 # Cuối epoch: epoch_accuracy = accuracy.calculate_accumulated()
+@CLASS_REGISTRY.register
 class Accuracy_RegressionTolerance(Accuracy):
     def __init__(self, tolerance=None):
         self.tolerance = tolerance
@@ -527,6 +568,7 @@ class Accuracy_RegressionTolerance(Accuracy):
     def setParameters(self, paramemters):
         pass
 
+@CLASS_REGISTRY.register
 class Accuracy_CategoricalClassification(Accuracy):
     # cột: class, hàng: số mẫu
     # predictions = [
@@ -573,6 +615,7 @@ class Accuracy_CategoricalClassification(Accuracy):
         pass
 
 #----------------------------- Optimizer-------------------------------#
+@CLASS_REGISTRY.register
 class Optimizer_SGD:
     def __init__(self, learning_rate = 0.01):
         self.learning_rate = learning_rate
@@ -600,6 +643,7 @@ class Optimizer_SGD:
     def setParameters(self, paramemters):
         pass
 
+@CLASS_REGISTRY.register
 class Optimizer_SGD_Decay:
     def __init__(self, learning_rate = 0.01, decay_rate = 1e-3):
         self.initial_lr = learning_rate
@@ -630,6 +674,7 @@ class Optimizer_SGD_Decay:
     def setParameters(self, paramemters):
         pass
 
+@CLASS_REGISTRY.register
 class Optimizer_SGD_Momentum:
     def __init__(self, beta = 0.9, learning_rate = 0.01):
         self.learning_rate = learning_rate
@@ -666,6 +711,7 @@ class Optimizer_SGD_Momentum:
     def setParameters(self, paramemters):
         pass
 
+@CLASS_REGISTRY.register
 class Optimizer_Momentum_Decay:
     def __init__(self, beta = 0.9, learning_rate = 0.01, decay_rate = 1e-3):
         self.initial_lr = learning_rate
@@ -706,6 +752,7 @@ class Optimizer_Momentum_Decay:
     def setParameters(self, paramemters):
         pass
 
+@CLASS_REGISTRY.register
 class Optimizer_AdaGrad:
     def __init__(self, learning_rate = 0.01, epsilon = 1e-7):
         self.learning_rate = learning_rate
@@ -741,6 +788,7 @@ class Optimizer_AdaGrad:
     def setParameters(self, paramemters):
         pass
 
+@CLASS_REGISTRY.register
 class Optimizer_RMSProp:
     def __init__(self, learning_rate = 0.001, p = 0.9, epsilon = 1e-7):
         self.initial_lr = learning_rate
@@ -781,6 +829,7 @@ class Optimizer_RMSProp:
     def setParameters(self, paramemters):
         pass
 
+@CLASS_REGISTRY.register
 class Optimizer_Adam:
     def __init__(self, learning_rate = 0.001, beta1=0.9, beta2=0.999, epsilon = 1e-7, decay_rate = 5e-3):
         self.initial_lr = learning_rate
@@ -961,6 +1010,59 @@ class Model:
             config["accuracy"] = self.accuracy.getConfig()
 
         return config
+
+    def createobjectfromconfig(config):
+        className = config["className"]
+        layer = CLASS_REGISTRY.get(className)
+        return layer
+        
+    @staticmethod
+    def createFromConfig(cls, config):
+        model = cls()
+        for layerConfig in config["layers"]:
+            layer = createobjectfromconfig(layerConfig)
+            model.add(layer)
+
+        lossConfig = config["loss"]
+
+        if lossConfig is not None:
+            loss = createobjectfromconfig(
+                lossConfig
+            )
+        else:
+            loss = None
+
+        optimizerConfig = config.get(
+            "optimizer"
+        )
+
+        if optimizerConfig is not None:
+            optimizer = createobjectfromconfig(
+                optimizerConfig
+            )
+        else:
+            optimizer = None
+
+        accuracyConfig = config.get(
+            "accuracy"
+        )
+
+        if accuracyConfig is not None:
+            accuracy = createobjectfromconfig(
+                accuracyConfig
+            )
+        else:
+            accuracy = None
+
+        model.set(
+            loss=loss,
+            optimizer=optimizer,
+            accuracy=accuracy
+        )
+
+        model.finalize()
+
+        return model
 
 #----------------------------- Mini-batch Training -------------------------------#
 class DataLoader:
