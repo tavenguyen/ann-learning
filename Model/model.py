@@ -1157,6 +1157,37 @@ class Model:
                 layerParameters
             )
 
+    def save(self, filepath):
+        data = {
+            "config": self.getConfig(),
+            "parameters": self.getParameters(),
+            "optimizerState": self.getOptimizerState()
+        }
+
+        with open(filepath, "wb") as file:
+            pickle.dump(
+                data,
+                file
+            )
+
+    def load(cls, filepath):
+        with open(filepath, "rb") as file:
+            data = pickle.load(file)
+
+        model = cls.createFromConfig(
+            data["config"]
+        )
+
+        model.setParameters(
+            data["parameters"]
+        )
+
+        model.setOptimizerState(
+            data.get("optimizerState")
+        )
+
+        return model
+
 #----------------------------- Mini-batch Training -------------------------------#
 class DataLoader:
     def __init__(self, X, y, batch_size=32, shuffle=True, drop_last=False):
