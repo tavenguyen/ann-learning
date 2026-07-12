@@ -205,10 +205,12 @@ class DenseLayer:
     def getConfig(self):
         return {
             "className": "DenseLayer",
-            "nInputs": self.nInputs,
-            "nNeurons": self.nNeurons
+            "n_inputs": self.nInputs,
+            "n_neurons": self.nNeurons,
+            "weight_regularizer": self.weight_regularizer.getConfig() if self.weight_regularizer else None,
+            "bias_regularizer": self.bias_regularizer.getConfig() if self.bias_regularizer else None
         }
-    
+     
     def getParameters(self):
         return {
             "weights": self.weights,
@@ -249,6 +251,18 @@ class Regularization_L1:
         gradient[parameters < 0] = -1
         return self.strength * gradient
     
+    def getConfig(self):
+        return {
+            "className": "Regularization_L1",
+            "strength": self.strength
+        }
+    
+    def getParameters(self):
+        return None
+    
+    def setParameters(self, parameters):
+        return None
+    
 @CLASS_REGISTRY.register
 class Regularization_L2:
     """L2 regularization helper.
@@ -275,6 +289,18 @@ class Regularization_L2:
     # calculate gradient
     def backward(self, parameters: np.ndarray) -> np.ndarray:
         return 2 * self.strength * parameters
+    
+    def getConfig(self):
+        return {
+            "className": "Regularization_L2",
+            "strength": self.strength
+        }
+    
+    def getParameters(self):
+        return None
+    
+    def setParameters(self, parameters):
+        return None
 
 @CLASS_REGISTRY.register
 class Regularization_L1L2:
@@ -312,6 +338,19 @@ class Regularization_L1L2:
         l2_gradient = 2 * self.l2_strength * weights
         return l1_gradient + l2_gradient
 
+    def getConfig(self):
+        return {
+            "className": "Regularization_L1L2",
+            "l1_strength": self.l1_strength,
+            "l2_strength": self.l2_strength
+        }
+    
+    def getParameters(self):
+        return None
+    
+    def setParameters(self, parameters):
+        return None
+
 # chi su dung trong training
 @CLASS_REGISTRY.register
 class Layer_Dropout:
@@ -342,6 +381,18 @@ class Layer_Dropout:
     def backward(self, dvalues):
         self.dinputs = dvalues * self.binary_mask
         return self.dinputs
+    
+    def getConfig(self):
+        return {
+            "className": "Layer_Dropout",
+            "dropout_rate": self.dropout_rate
+        }
+    
+    def getParameters(self):
+        return None
+    
+    def setParameters(self, parameters):
+        return None
 
 #----------------------------- Activation -------------------------------#
 @CLASS_REGISTRY.register
@@ -357,7 +408,7 @@ class Activation_Linear:
     
     def getConfig(self):
         return {
-            "className": "ActivationLinear"
+            "className": "Activation_Linear"
         }
     
     def getParameters(self):
@@ -380,7 +431,7 @@ class Activation_ReLU:
     
     def getConfig(self):
         return {
-            "className": "ActivationReLU"
+            "className": "Activation_ReLU"
         }
     
     def getParameters(self):
@@ -404,6 +455,17 @@ class Activation_Softmax:
             jacobian_matrix = np.diagflat(single_output) - np.dot(single_output,single_output.T)
             self.dinputs[index] = np.dot(jacobian_matrix,single_dvalues)
 
+    def getConfig(self):
+        return {
+            "className": "Activation_Softmax"
+        }
+    
+    def getParameters(self):
+        return None
+    
+    def setParameters(self, paramemters):
+        pass
+
 @CLASS_REGISTRY.register
 class Activation_Sigmoid:
     def forward(self, inputs):
@@ -419,7 +481,7 @@ class Activation_Sigmoid:
 
     def getConfig(self):
         return {
-            "className": "ActivationSigmoid"
+            "className": "Activation_Sigmoid"
         }
 
     def getParameters(self):
@@ -429,7 +491,6 @@ class Activation_Sigmoid:
         pass
 
 #----------------------------- Loss -------------------------------#
-@CLASS_REGISTRY.register
 class Loss:
     def calculate(self, y_pred, y_true):
         sample_losses = self.forward(y_pred, y_true)
@@ -475,7 +536,7 @@ class Activation_Softmax_Loss_CategoricalCrossEntropy(Loss):
     
     def getConfig(self):
         return {
-            "className": "ActivationSoftmaxLossCategoricalCrossEntropy"
+            "className": "Activation_Softmax_Loss_CategoricalCrossEntropy"
         }
     
     def getParameters(self):
@@ -501,7 +562,7 @@ class Loss_MeanSquaredError(Loss):
     
     def getConfig(self):
         return {
-            "className": "LossMeanSquaredError"
+            "className": "Loss_MeanSquaredError"
         }
     
     def getParameters(self):
@@ -558,7 +619,7 @@ class Accuracy_RegressionTolerance(Accuracy):
     
     def getConfig(self):
         return {
-            "className": "AccuracyRegressionTolerance",
+            "className": "Accuracy_RegressionTolerance",
             "tolerance": self.tolerance
         }
 
@@ -604,8 +665,7 @@ class Accuracy_CategoricalClassification(Accuracy):
     
     def getConfig(self):
         return {
-            "className": "AccuracyCategoricalClassification",
-            "tolerance": self.tolerance
+            "className": "Accuracy_CategoricalClassification"
         }
 
     def getParameters(self):
@@ -633,8 +693,8 @@ class Optimizer_SGD:
 
     def getConfig(self):
         return {
-            "className": "OptimizerSGD",
-            "learningRate": self.learning_rate
+            "className": "Optimizer_SGD",
+            "learning_rate": self.learning_rate
         }
 
     def getParameters(self):
@@ -663,9 +723,9 @@ class Optimizer_SGD_Decay:
 
     def getConfig(self):
         return {
-            "className": "OptimizerDecay",
-            "learningRate": self.initial_lr,
-            "decayRate": self.decay_rate
+            "className": "Optimizer_SGD_Decay",
+            "learning_rate": self.initial_lr,
+            "decay_rate": self.decay_rate
         }
 
     def getParameters(self):
@@ -700,8 +760,8 @@ class Optimizer_SGD_Momentum:
 
     def getConfig(self):
         return {
-            "className": "OptimizerMomentum",
-            "learningRate": self.learning_rate,
+            "className": "Optimizer_SGD_Momentum",
+            "learning_rate": self.learning_rate,
             "beta": self.beta
         }
 
@@ -740,9 +800,9 @@ class Optimizer_Momentum_Decay:
 
     def getConfig(self):
         return {
-            "className": "OptimizerMomentumDecay",
-            "learningRate": self.initial_lr,
-            "decayRate": self.decay_rate,
+            "className": "Optimizer_Momentum_Decay",
+            "learning_rate": self.initial_lr,
+            "decay_rate": self.decay_rate,
             "beta": self.beta
         }
 
@@ -777,8 +837,8 @@ class Optimizer_AdaGrad:
 
     def getConfig(self):
         return {
-            "className": "OptimizerAdaGrad",
-            "learningRate": self.learning_rate,
+            "className": "Optimizer_AdaGrad",
+            "learning_rate": self.learning_rate,
             "epsilon": self.epsilon
         }
 
@@ -817,8 +877,8 @@ class Optimizer_RMSProp:
         
     def getConfig(self):
         return {
-            "className": "OptimizerRMSProp",
-            "learningRate": self.initial_lr,
+            "className": "Optimizer_RMSProp",
+            "learning_rate": self.initial_lr,
             "p": self.p,
             "epsilon": self.epsilon
         }
@@ -873,9 +933,9 @@ class Optimizer_Adam:
 
     def getConfig(self):
         return {
-            "className": "OptimizerAdam",
-            "learningRate": self.initial_lr,
-            "decayRate": self.decay_rate,
+            "className": "Optimizer_Adam",
+            "learning_rate": self.initial_lr,
+            "decay_rate": self.decay_rate,
             "beta1": self.beta1,
             "beta2": self.beta2,
             "epsilon": self.epsilon
@@ -947,7 +1007,7 @@ class Model:
                 reg_loss += layer.weight_regularizer.forward(layer.weights)
             if getattr(layer, "bias_regularizer", None) is not None:
                 reg_loss += layer.bias_regularizer.forward(layer.biases)
-            return reg_loss
+        return reg_loss
 
     # forward -> loss -> accuracy -> backward -> update params -> print
     def train(self, x, y, epochs = 10000, print_every = 100):
@@ -1011,22 +1071,32 @@ class Model:
 
         return config
 
-    def createobjectfromconfig(config):
-        className = config["className"]
-        layer = CLASS_REGISTRY.get(className)
-        return layer
+    @classmethod
+    def createobjectfromconfig(cls, config):
+        if config is None: return None
         
-    @staticmethod
+        class_name = config.get("className")
+        # Lấy các tham số còn lại, loại bỏ className
+        kwargs = {k: v for k, v in config.items() if k != "className"}
+        
+        # Xử lý đệ quy cho các đối tượng lồng (ví dụ: regularizers)
+        for k, v in kwargs.items():
+            if isinstance(v, dict) and "className" in v:
+                kwargs[k] = cls.createobjectfromconfig(v)
+                
+        return CLASS_REGISTRY.get(class_name, **kwargs)
+        
+    @classmethod
     def createFromConfig(cls, config):
         model = cls()
         for layerConfig in config["layers"]:
-            layer = createobjectfromconfig(layerConfig)
+            layer = cls.createobjectfromconfig(layerConfig)
             model.add(layer)
 
         lossConfig = config["loss"]
 
         if lossConfig is not None:
-            loss = createobjectfromconfig(
+            loss = cls.createobjectfromconfig(
                 lossConfig
             )
         else:
@@ -1037,7 +1107,7 @@ class Model:
         )
 
         if optimizerConfig is not None:
-            optimizer = createobjectfromconfig(
+            optimizer = cls.createobjectfromconfig(
                 optimizerConfig
             )
         else:
@@ -1048,7 +1118,7 @@ class Model:
         )
 
         if accuracyConfig is not None:
-            accuracy = createobjectfromconfig(
+            accuracy = cls.createobjectfromconfig(
                 accuracyConfig
             )
         else:
@@ -1064,13 +1134,36 @@ class Model:
 
         return model
 
+    def getParameters(self):
+        parameters = []
+
+        for layer in self.trainable_layers:
+            parameters.append(layer.getParameters())
+
+        return parameters
+
+    # Phải gọi finalize() trước khi setParameters() vì finalize() tạo self.trainableLayers.
+    def setParameters(self, parameters):
+        if len(parameters) != len(self.trainable_layers):
+            raise ValueError(
+                "Số lượng parameter không khớp với số trainable layers."
+            )
+
+        for layer, layerParameters in zip(
+            self.trainable_layers,
+            parameters
+        ):
+            layer.setParameters(
+                layerParameters
+            )
+
 #----------------------------- Mini-batch Training -------------------------------#
 class DataLoader:
-    def __init__(self, X, y, batch_size=32, suffle=True, drop_last=False):
+    def __init__(self, X, y, batch_size=32, shuffle=True, drop_last=False):
         self.X = X
         self.y = y
         self.batch_size = batch_size
-        self.suffle = suffle
+        self.shuffle = shuffle
         self.drop_last = drop_last
 
         self.n_samples = len(X)
@@ -1090,8 +1183,8 @@ class DataLoader:
                 return
             
             # cú pháp slicing sẽ tự dùng ở phần tử cuối cùng nếu end lớn hơn n_samples
-            X_batches = self.X_shuffled[start:end]
-            Y_batches = self.y_shuffled[start:end]
+            X_batches = X_shuffled[start:end]
+            Y_batches = y_shuffled[start:end]
             yield X_batches, Y_batches
 
     def __len__(self):
