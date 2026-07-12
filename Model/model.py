@@ -183,7 +183,7 @@ class DenseLayer:
         self.weight_regularizer = weight_regularizer
         self.bias_regularizer = bias_regularizer
     
-    def forward(self, inputs: np.ndarray) -> None:
+    def forward(self, inputs: np.ndarray, training: bool = False) -> None:
         self.inputs = inputs
         self.output = np.dot(inputs, self.weights) + self.biases
 
@@ -503,7 +503,7 @@ class Activation_Softmax_Loss_CategoricalCrossEntropy(Loss):
         # Softmax activation
         exp_values = np.exp(y_pred - np.max(y_pred, axis = 1, keepdims = True))
         probs = exp_values / np.sum(exp_values, axis = 1, keepdims = True)
-        self.output = probs
+        self.softmax_output = probs
         
         samples = len(probs)
         # Clip probabilities to prevent log(0)
@@ -521,8 +521,8 @@ class Activation_Softmax_Loss_CategoricalCrossEntropy(Loss):
 
     def backward(self, y_pred, y_true):
         # Backward API expects (y_pred, y_true) to match Model.backward
-        # Use stored softmax probabilities computed in forward (self.output)
-        probs = self.output.copy()
+        # Use stored softmax probabilities computed in forward (self.softmax_output)
+        probs = self.softmax_output.copy()
         samples = len(probs)
 
         # If y_true is one-hot encoded, convert to class indices
