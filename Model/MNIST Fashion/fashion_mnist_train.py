@@ -246,29 +246,19 @@ def build_model() -> Model:
     model = Model()
     
     # Input: 784 features
-    # Hidden layer 1: 512 neurons
-    reg = Regularization_L2(strength=1e-4)
-    model.add(DenseLayer(512, INPUT_FEATURES, weight_regularizer=reg))
+    # Hidden layer 1: 256 neurons
+    reg = Regularization_L2(strength=1e-3)
+    model.add(DenseLayer(256, INPUT_FEATURES, weight_regularizer=reg))
     model.add(Activation_ReLU())
     model.add(Layer_Dropout(dropout_rate=0.3))
     
-    # Hidden layer 2: 256 neurons
-    model.add(DenseLayer(256, 512, weight_regularizer=reg))
-    model.add(Activation_ReLU())
-    model.add(Layer_Dropout(dropout_rate=0.3))
-    
-    # Hidden layer 3: 128 neurons
+    # Hidden layer 2: 256 -> 128 neurons
     model.add(DenseLayer(128, 256, weight_regularizer=reg))
     model.add(Activation_ReLU())
-    model.add(Layer_Dropout(dropout_rate=0.2))
-    
-    # Hidden layer 4: 64 neurons
-    model.add(DenseLayer(64, 128, weight_regularizer=reg))
-    model.add(Activation_ReLU())
-    model.add(Layer_Dropout(dropout_rate=0.2))
-    
+    model.add(Layer_Dropout(dropout_rate=0.3))
+
     # Output layer: 10 classes
-    model.add(DenseLayer(N_CLASSES, 64))
+    model.add(DenseLayer(N_CLASSES, 128))
     
     # Optimizer: Adam with learning rate decay
     optimizer = Optimizer_Adam(

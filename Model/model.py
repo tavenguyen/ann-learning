@@ -985,7 +985,7 @@ class Model:
     
     def backward(self, y_pred, y_true):
         self.loss.backward(y_pred, y_true)
-        dvalues =  self.loss.dinputs
+        dvalues = self.loss.dinputs
 
         for layer in reversed(self.layers):
             layer.backward(dvalues)

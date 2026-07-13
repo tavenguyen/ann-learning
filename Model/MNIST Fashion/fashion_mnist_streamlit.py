@@ -84,9 +84,13 @@ def predict_single_image(model: Model, image: np.ndarray) -> tuple:
     X = image.reshape(1, -1)
     logits = model.forward(X, training=False)
     probs = logits[0]
-    
-    predicted_class = int(np.argmax(probs))
-    confidence = float(np.max(probs))
+
+    exp_logits = np.exp(logits - np.max(logits, axis=1, keepdims=True))
+    probabilities = exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
+
+    # Lấy thông tin dự đoán chính xác
+    predicted_class = np.argmax(probabilities, axis=1)[0]
+    confidence = np.max(probabilities, axis=1)[0] * 100
     
     return predicted_class, confidence, probs
 
@@ -151,7 +155,7 @@ def main():
                 )
                 st.metric(
                     "Confidence",
-                    f"{confidence * 100:.2f}%"
+                    f"{confidence:.2f}%"
                 )
             
             st.write("Class Probabilities:")
