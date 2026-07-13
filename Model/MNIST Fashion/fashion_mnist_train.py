@@ -273,7 +273,7 @@ def build_model() -> Model:
     
     # Input: 784 features
     # Hidden layer 1: 256 neurons
-    reg = Regularization_L2(strength=1e-3)
+    reg = Regularization_L2(strength=1e-5)
     model.add(DenseLayer(256, INPUT_FEATURES, weight_regularizer=reg, init_type="he"))
     model.add(Activation_LeakyReLU())
     model.add(Layer_Dropout(dropout_rate=0.3))
