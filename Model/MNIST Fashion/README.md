@@ -28,9 +28,10 @@ Model/MNIST Fashion/
 **Purpose**: Train the Fashion-MNIST classifier with validation monitoring and best model saving.
 
 **Key Features**:
-- Automatic dataset loading from Keras/TensorFlow
+- Automatic dataset loading from local directories
 - Intelligent data preprocessing (normalization, flattening)
 - Train/validation split (80/20)
+- Label Smoothing ($\alpha=0.1$) to prevent over-confidence and improve generalization
 - Mini-batch gradient descent training
 - Real-time validation monitoring
 - Best model checkpoint saving
@@ -41,25 +42,23 @@ Model/MNIST Fashion/
 ```
 Input (784 features)
     ↓
-Dense(512) → ReLU → Dropout(30%)
+Dense(256, init="he") → LeakyReLU → Dropout(30%)
     ↓
-Dense(256) → ReLU → Dropout(30%)
-    ↓
-Dense(128) → ReLU → Dropout(20%)
-    ↓
-Dense(64) → ReLU → Dropout(20%)
+Dense(128, init="he") → LeakyReLU → Dropout(30%)
     ↓
 Dense(10) → Softmax
 Output (10 classes)
 ```
 
 **Design Rationale**:
-- **Progressive width reduction**: 784→512→256→128→64 reduces parameters while maintaining capacity
-- **ReLU activations**: Non-linearity enables learning of complex decision boundaries
-- **Dropout (20-30%)**: Prevents co-adaptation of neurons, improves generalization
-- **L2 Regularization (1e-4)**: Prevents weight explosion without over-regularizing
-- **Adam optimizer**: Adaptive learning rates for stable convergence
-- **Mini-batches (128)**: Balance between gradient noise and computational efficiency
+- **Simplified Architecture**: 784→256→128→10 maintains high capacity while reducing training time and risk of overfitting.
+- **LeakyReLU Activations**: Prevents "dying ReLU" problem by allowing a small gradient for negative values.
+- **He Initialization**: Optimizes weight variance for LeakyReLU, ensuring stable signal flow through deep layers.
+- **Label Smoothing ($\alpha=0.1$)**: Converts hard targets to soft distributions, reducing model over-confidence.
+- **Dropout (30%)**: Prevents co-adaptation of neurons, improving generalization.
+- **L2 Regularization (1e-5)**: Provides a light penalty on weights to prevent explosion without suppressing learning.
+- **Adam Optimizer**: Adaptive learning rates for stable convergence.
+- **Mini-batches (128)**: Balance between gradient noise and computational efficiency.
 
 **Usage**:
 ```bash
@@ -71,8 +70,8 @@ python fashion_mnist_train.py
 ```
 ✓ Loaded dataset: train=(60000, 28, 28), test=(10000, 28, 28)
 ✓ Dataset prepared:
-  Train: (48000, 784), (48000,)
-  Validation: (12000, 784), (12000,)
+  Train: (48000, 784), (48000, 10)
+  Validation: (12000, 784), (12000, 10)
   Test: (10000, 784), (10000,)
 
 ✓ Building model architecture...
@@ -81,33 +80,10 @@ python fashion_mnist_train.py
 TRAINING FASHION-MNIST CLASSIFIER
 ======================================================================
 Epochs: 100 | Batch size: 128
-Learning rate: 0.001 | L2 regularization: 1e-4
-Dropout: 20-30% | Architecture: 784->512->256->128->64->10
+Learning rate: 0.001 | L2 regularization: 1e-5
+Dropout: 30% | Architecture: 784->256->128->10
 ======================================================================
-Epoch   0 | Loss: 2.30282 | Acc: 0.1009 | Val Loss: 2.30255 | Val Acc: 0.1035 | LR: 0.001000
-Epoch  10 | Loss: 0.56847 | Acc: 0.8179 | Val Loss: 0.47384 | Val Acc: 0.8441 | LR: 0.000999 ✓ SAVED
 ...
-Epoch 100 | Loss: 0.07394 | Acc: 0.9769 | Val Loss: 0.32105 | Val Acc: 0.8901 | LR: 0.000990
-
-⚠ Early stopping at epoch 58 (no improvement for 15 epochs)
-
-======================================================================
-TRAINING SUMMARY
-======================================================================
-Total Epochs: 59
-Training Time: 145.32 seconds (2.42 minutes)
-
-Best Model (Epoch 43):
-  ✓ Best Validation Accuracy: 0.89015
-  ✓ Final Training Loss: 0.07394
-  ✓ Final Training Accuracy: 0.97688
-
-Test Set Performance:
-  ✓ Test Loss: 0.32105
-  ✓ Test Accuracy: 0.8815
-
-Model saved to: Model/MNIST Fashion/fashion_mnist.params
-======================================================================
 ```
 
 **Key Parameters**:
@@ -115,9 +91,10 @@ Model saved to: Model/MNIST Fashion/fashion_mnist.params
 |-----------|-------|-----------|
 | Batch Size | 128 | Good balance between stability and memory usage |
 | Learning Rate | 0.001 | Standard for Adam optimizer |
-| Learning Rate Decay | 1e-4 | Gentle decay for stable convergence |
-| L2 Regularization | 1e-4 | Prevents overfitting without hurting accuracy |
-| Dropout Rates | 20-30% | Empirically optimal for this architecture |
+| Learning Rate Decay | 1e-5 | Gentle decay for stable convergence |
+| L2 Regularization | 1e-5 | Light penalty to prevent overfitting |
+| Label Smoothing | $\alpha=0.1$ | Regularizes output distributions |
+| Dropout Rates | 30% | Empirically optimal for this architecture |
 | Early Stopping Patience | 15 | Prevents unnecessary training after plateau |
 | Validation Split | 20% | Standard for monitoring |
 
@@ -204,23 +181,23 @@ Prediction distribution:
 ### Components Used
 
 **Layers**:
-- `Layer_Dense(n_inputs, n_neurons, weight_regularizer=None)` - Fully connected layer
+- `DenseLayer(n_inputs, n_neurons, weight_regularizer=None, init_type="he")` - Fully connected layer with optional He initialization
 
 **Activations**:
-- `Activation_ReLU()` - Rectified Linear Unit
-- `Activation_Softmax_Loss_CategoricalCrossEntropy()` - Combined loss + activation
+- `Activation_LeakyReLU(alpha=0.01)` - Leaky Rectified Linear Unit
+- `Activation_Softmax_Loss_CategoricalCrossEntropy()` - Combined loss + activation (supports soft labels)
 
 **Regularization**:
-- `Regularization_L2(strength=1e-4)` - L2 weight regularization
+- `Regularization_L2(strength=1e-5)` - L2 weight regularization
 
 **Dropout**:
 - `Layer_Dropout(dropout_rate=0.3)` - Dropout for regularization
 
 **Optimizers**:
-- `Optimizer_Adam(learning_rate=0.001, decay_rate=1e-4)` - Adam optimizer with decay
+- `Optimizer_Adam(learning_rate=0.001, decay_rate=1e-5)` - Adam optimizer with decay
 
 **Accuracy Metrics**:
-- `Accuracy_CategoricalClassification()` - Multi-class accuracy
+- `Accuracy_CategoricalClassification()` - Multi-class accuracy (compatible with soft labels)
 
 **Data Loading**:
 - `DataLoader(X, y, batch_size=32, shuffle=True)` - Mini-batch iterator
@@ -249,7 +226,8 @@ Prediction distribution:
 2. Normalize: image / 255.0 → [0, 1]
 3. Convert dtype: uint8 → float32
 4. Flatten: (28, 28) → (784,)
-Result: (N, 784) feature matrix
+5. Label Smoothing: Hard labels → Soft distributions (alpha=0.1)
+Result: (N, 784) feature matrix and (N, 10) soft labels
 ```
 
 ### Inference Preprocessing
@@ -280,7 +258,7 @@ MUST be IDENTICAL to training:
 - Fine-tuning of decision boundaries
 
 ### Phase 3: Fine-tuning (Epochs 50+)
-- Very low learning rate (decayed to ~0.0995)
+- Very low learning rate (decayed to ~0.0009)
 - Diminishing returns on validation accuracy
 - May overfit training set
 
@@ -329,23 +307,16 @@ MUST be IDENTICAL to training:
 - `numpy` - Numerical computations
 - `pillow` - Image loading
 - `matplotlib` - Visualization
-- `tensorflow` or `keras` - For dataset loading (optional)
 
 ### Framework
 - Custom ANN framework in `Model/model.py`
 
 ### Dataset
-- Fashion-MNIST (automatically downloaded by TensorFlow)
+- Fashion-MNIST images provided in `Fashion_Mnist_Images/` directory
 
 ---
 
 ## Troubleshooting
-
-### Issue: "Dataset not available locally"
-**Solution**: Ensure TensorFlow/Keras is installed for automatic download
-```bash
-pip install tensorflow
-```
 
 ### Issue: "No test images found"
 **Solution**: Create `Model/MNIST Fashion/Fashion_Mnist_Images/test/` and add PNG/JPG files
@@ -354,7 +325,7 @@ pip install tensorflow
 **Solution**: Verify preprocessing is identical to training (normalize to [0,1])
 
 ### Issue: Model file too large
-**Solution**: Normal - 784×512×256×128×64×10 = ~260MB+ in memory
+**Solution**: Normal - Weights for the current architecture occupy several MBs.
 
 ---
 
@@ -367,7 +338,7 @@ pip install tensorflow
 | Validation Accuracy | ~89-90% | Good generalization |
 | Test Accuracy | ~88-89% | Realistic performance |
 | Training Time | ~2-3 minutes | CPU-based |
-| Model Size | ~5-10 MB | Parameter file |
+| Model Size | ~2-5 MB | Parameter file |
 
 ### Optimization Opportunities
 1. **Wider networks** (1024+ hidden units) → Slightly higher accuracy, more parameters
