@@ -274,12 +274,12 @@ def build_model() -> Model:
     # Input: 784 features
     # Hidden layer 1: 256 neurons
     reg = Regularization_L2(strength=1e-3)
-    model.add(DenseLayer(256, INPUT_FEATURES, weight_regularizer=reg))
+    model.add(DenseLayer(256, INPUT_FEATURES, weight_regularizer=reg, init_type="he"))
     model.add(Activation_LeakyReLU())
     model.add(Layer_Dropout(dropout_rate=0.3))
     
     # Hidden layer 2: 256 -> 128 neurons
-    model.add(DenseLayer(128, 256, weight_regularizer=reg))
+    model.add(DenseLayer(128, 256, weight_regularizer=reg, init_type="he"))
     model.add(Activation_LeakyReLU())
     model.add(Layer_Dropout(dropout_rate=0.3))
 
@@ -289,7 +289,7 @@ def build_model() -> Model:
     # Optimizer: Adam with learning rate decay
     optimizer = Optimizer_Adam(
         learning_rate=LEARNING_RATE,
-        decay_rate=5e-4  # Increased decay rate from 1e-4 to 5e-4
+        decay_rate=1e-5  # Adjusted decay rate from 5e-4 to 1e-5
     )
     
     # Loss + Activation: Softmax + Categorical Cross-Entropy

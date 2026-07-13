@@ -163,6 +163,8 @@ class DenseLayer:
         weight_regularizer.forward(layer.weights).
     bias_regularizer : optional
         Same as weight_regularizer but applied to biases.
+    init_type : str, default="random"
+        Initialization method. "random" uses 0.01 * randn, "he" uses sqrt(2/n_inputs) * randn.
 
     Usage notes
     -----------
@@ -172,11 +174,18 @@ class DenseLayer:
     - Regularizer.backward(parameters) should return the gradient contribution
       for the given parameters; DenseLayer will add it to dweights/dbiases.
     """
-    def __init__(self, n_neurons: int, n_inputs: int, weight_regularizer=None, bias_regularizer=None):
+    def __init__(self, n_neurons: int, n_inputs: int, weight_regularizer=None, bias_regularizer=None, init_type="random"):
         self.nInputs = n_inputs
         self.nNeurons = n_neurons
+        self.init_type = init_type
         
-        self.weights = 0.01 * np.random.randn(n_inputs, n_neurons)
+        if init_type == "he":
+            # He initialization: std = sqrt(2 / n_inputs)
+            std = np.sqrt(2.0 / n_inputs)
+            self.weights = np.random.randn(n_inputs, n_neurons) * std
+        else:
+            self.weights = 0.01 * np.random.randn(n_inputs, n_neurons)
+            
         self.biases = np.zeros((1, n_neurons))
 
         # Regularizer objects (can be None)
@@ -207,6 +216,7 @@ class DenseLayer:
             "className": "DenseLayer",
             "n_inputs": self.nInputs,
             "n_neurons": self.nNeurons,
+            "init_type": self.init_type,
             "weight_regularizer": self.weight_regularizer.getConfig() if self.weight_regularizer else None,
             "bias_regularizer": self.bias_regularizer.getConfig() if self.bias_regularizer else None
         }
