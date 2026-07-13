@@ -31,7 +31,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from Model.model import (
     Model,
     DenseLayer,
-    Activation_ReLU,
+    Activation_LeakyReLU,
     Layer_Dropout,
     Activation_Softmax_Loss_CategoricalCrossEntropy,
     Optimizer_Adam,
@@ -190,6 +190,28 @@ def split_train_validation(X: np.ndarray, y: np.ndarray, split: float = 0.2,
     return X[train_indices], y[train_indices], X[val_indices], y[val_indices]
 
 
+def smooth_labels(y, alpha=0.1):
+    """
+    Apply label smoothing to convert hard labels to soft labels.
+    
+    Args:
+        y: Labels as a 1D array of class indices.
+        alpha: Smoothing factor (0.0 to 1.0).
+        
+    Returns:
+        Soft labels as a 2D array (N, N_CLASSES).
+    """
+    n_samples = len(y)
+    n_classes = N_CLASSES
+    
+    # Create one-hot encoding
+    one_hot = np.zeros((n_samples, n_classes))
+    one_hot[np.arange(n_samples), y] = 1.0
+    
+    # Apply smoothing: (1 - alpha) * one_hot + alpha / n_classes
+    return (1.0 - alpha) * one_hot + (alpha / n_classes)
+
+
 def prepare_dataset():
     """
     Load and preprocess Fashion-MNIST dataset.
@@ -211,12 +233,16 @@ def prepare_dataset():
         random_state=RANDOM_SEED
     )
     
+    # Apply Label Smoothing to training and validation sets
+    y_train_smooth = smooth_labels(y_train, alpha=0.1)
+    y_val_smooth = smooth_labels(y_val, alpha=0.1)
+    
     print("Dataset prepared:")
-    print(f"  Train: {X_train.shape}, {y_train.shape}")
-    print(f"  Validation: {X_val.shape}, {y_val.shape}")
+    print(f"  Train: {X_train.shape}, {y_train_smooth.shape}")
+    print(f"  Validation: {X_val.shape}, {y_val_smooth.shape}")
     print(f"  Test: {X_test.shape}, {y_test.shape}")
     
-    return X_train, y_train, X_val, y_val, X_test, y_test
+    return X_train, y_train_smooth, X_val, y_val_smooth, X_test, y_test
 
 
 # ==================== Model Architecture ====================
@@ -228,7 +254,7 @@ def build_model() -> Model:
     Design rationale:
     - Input layer: 784 features (28x28 images flattened)
     - Hidden layers: 512 -> 256 -> 128 -> 64 neurons (progressively smaller)
-    - Activation: ReLU for non-linearity
+    - Activation: LeakyReLU for non-linearity
     - Dropout: 30% after each hidden layer to prevent overfitting
     - Regularization: L2 (0.0001) on dense layer weights
     - Output: 10 classes with Softmax + Cross-Entropy loss
@@ -249,12 +275,12 @@ def build_model() -> Model:
     # Hidden layer 1: 256 neurons
     reg = Regularization_L2(strength=1e-3)
     model.add(DenseLayer(256, INPUT_FEATURES, weight_regularizer=reg))
-    model.add(Activation_ReLU())
+    model.add(Activation_LeakyReLU())
     model.add(Layer_Dropout(dropout_rate=0.3))
     
     # Hidden layer 2: 256 -> 128 neurons
     model.add(DenseLayer(128, 256, weight_regularizer=reg))
-    model.add(Activation_ReLU())
+    model.add(Activation_LeakyReLU())
     model.add(Layer_Dropout(dropout_rate=0.3))
 
     # Output layer: 10 classes
@@ -263,7 +289,7 @@ def build_model() -> Model:
     # Optimizer: Adam with learning rate decay
     optimizer = Optimizer_Adam(
         learning_rate=LEARNING_RATE,
-        decay_rate=1e-4  # Decay learning rate during training
+        decay_rate=5e-4  # Increased decay rate from 1e-4 to 5e-4
     )
     
     # Loss + Activation: Softmax + Categorical Cross-Entropy

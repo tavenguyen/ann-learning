@@ -418,6 +418,33 @@ class Activation_Linear:
         pass
     
 @CLASS_REGISTRY.register
+class Activation_LeakyReLU:
+    def __init__(self, alpha=0.01):
+        self.alpha = alpha
+
+    def forward(self, inputs):
+        self.inputs = inputs
+        self.output = np.where(self.inputs > 0, self.inputs, self.alpha * self.inputs)
+        return self.output
+    
+    def backward(self, dvalues):
+        self.dinputs = dvalues.copy()
+        self.dinputs[self.inputs <= 0] = self.alpha * dvalues[self.inputs <= 0]
+        return self.dinputs
+    
+    def getConfig(self):
+        return {
+            "className": "Activation_LeakyReLU",
+            "alpha": self.alpha
+        }
+    
+    def getParameters(self):
+        return None
+    
+    def setParameters(self, parameters):
+        pass
+
+@CLASS_REGISTRY.register
 class Activation_ReLU:
     def forward(self, inputs):
         self.inputs = inputs
@@ -509,11 +536,11 @@ class Activation_Softmax_Loss_CategoricalCrossEntropy(Loss):
         # Clip probabilities to prevent log(0)
         probs_clipped = np.clip(probs, 1e-7, 1 - 1e-7)
 
-        # y_true =[0, 1, 1]
         if len(y_true.shape) == 1:
+            # Hard labels: y_true is class indices [0, 1, 2...]
             correct_conf = probs_clipped[range(samples), y_true]
         else:
-            # y_true is one-hot
+            # Soft labels: y_true is (N, K) distribution
             correct_conf = np.sum(probs_clipped * y_true, axis = 1)
 
         negative_log_likelihood = -np.log(correct_conf)
@@ -525,13 +552,16 @@ class Activation_Softmax_Loss_CategoricalCrossEntropy(Loss):
         probs = self.softmax_output.copy()
         samples = len(probs)
 
-        # If y_true is one-hot encoded, convert to class indices
-        if y_true.ndim == 2:
-            y_true = np.argmax(y_true, axis=1)
+        if y_true.ndim == 1:
+            # Convert hard labels to one-hot for gradient calculation
+            y_true_one_hot = np.zeros((samples, probs.shape[1]))
+            y_true_one_hot[np.arange(samples), y_true] = 1
+            grad = probs - y_true_one_hot
+        else:
+            # y_true is already soft labels/one-hot
+            grad = probs - y_true
 
-        # Gradient for softmax combined with categorical cross-entropy
-        probs[range(samples), y_true] -= 1
-        self.dinputs = probs / samples
+        self.dinputs = grad / samples
         return self.dinputs
     
     def getConfig(self):
